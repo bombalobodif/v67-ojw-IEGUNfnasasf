@@ -22,6 +22,7 @@ const OFFSETS = {
     gotoAndStopFrameIndex: 0xC1C90C,
     gui_showFloaterTextAtDefaultPos: 0x818CDC,
     guiUpdate: 0x5916C8,
+    guiGetInstance: 0x591644,
     homeModeGetInstance: 0x95F488,
     hypercharge: 0x56ECA4,
     intigerSQRT: 0xC67000,
@@ -60,7 +61,7 @@ const natives = {
     LogicGameObjectClient_getX: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getX), "uint32", ["pointer"]),
     LogicGameObjectClient_getY: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getY), "uint32", ["pointer"]),
     LogicBattleModeClient_getOwnCharacter: new NativeFunction(base.add(OFFSETS.logicBattleModeClient_getOwnCharacter), "pointer", ["pointer"]),
-    Gui_getInstance: new NativeFunction(base.add(OFFSETS.Gui_getInstance), "pointer", []),
+    Gui_getInstance: new NativeFunction(base.add(OFFSETS.guiGetInstance), "pointer", []),
     StringCtor: new NativeFunction(base.add(OFFSETS.stringCtor), "pointer", ["pointer", "pointer"]),
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
     LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"])
@@ -76,7 +77,6 @@ const config = {
 };
 //CONFIG
 
-//AIMBOT
 const getinstance = natives.Gui_getInstance;
 const stringctor = natives.StringCtor;
 const floater = natives.Gui_showFloaterTextAtDefaultPos;

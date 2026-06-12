@@ -454,10 +454,13 @@ const natives = {
 
 //CONFIG
 const config = {
-    lastpositionsLen: 3,
+    lastpositionsLen: 5,
     projectileSpeed: 3255,
     useWeightedAverage: false,
-    timeToHitMultiplyCoeficient: 0.8
+    timeToHitMultiplyCoeficient: 0.8,
+    emaAlpha: 0.4,           // EMA vyhlazení: 0.0 = maximální vyhlazení, 1.0 = raw
+    iterativeSteps: 3,       // počet iterací predikce
+    movementThreshold: 50    // minimální pohyb pro predikci (jinak aim na aktuální pozici)
 };
 //CONFIG
 
@@ -470,6 +473,8 @@ const latestY = createRecentArray(config.lastpositionsLen);
 const timeDiffs = createRecentArray(config.lastpositionsLen - 1);
 let battleMode = null;
 let lastTime = 0;
+let emaX = null;
+let emaY = null;
 
 function createRecentArray(max = 2) {
     const arr = [];
@@ -490,9 +495,6 @@ function predictFuturePosition(timeToPredictSeconds) {
     if (latestX.array.length < 2 || timeDiffs.array.length < 1) {
         return { x: latestX.array[latestX.array.length - 1] || 0, y: latestY.array[latestY.array.length - 1] || 0 };
     }
-
-    const totalTimeDiff = timeDiffs.array.reduce((sum, diff) => sum + diff, 0);
-    const avgTimeDiff = totalTimeDiff / timeDiffs.array.length / 1000;
 
     let totalVx = 0;
     let totalVy = 0;
@@ -521,6 +523,31 @@ function predictFuturePosition(timeToPredictSeconds) {
     const predictedY = currentY + avgVy * timeToPredictSeconds;
 
     return { x: predictedX, y: predictedY };
+}
+
+// Iterativní predikce — řeší cirkulární závislost timeToHit <-> cílová pozice
+function predictIterative(ownX, ownY) {
+    let predX = latestX.array[latestX.array.length - 1] || 0;
+    let predY = latestY.array[latestY.array.length - 1] || 0;
+
+    for (let i = 0; i < config.iterativeSteps; i++) {
+        const t = config.timeToHitMultiplyCoeficient
+            * calculateTimeToHit(ownX, ownY, predX, predY);
+        const pos = predictFuturePosition(t);
+        predX = pos.x;
+        predY = pos.y;
+    }
+
+    return { x: predX, y: predY };
+}
+
+// Vrátí velikost posledního pohybu cíle (pro detekci stání)
+function getVelocityMagnitude() {
+    const len = latestX.array.length;
+    if (len < 2) return 0;
+    const dx = latestX.array[len - 1] - latestX.array[len - 2];
+    const dy = latestY.array[len - 1] - latestY.array[len - 2];
+    return Math.sqrt(dx * dx + dy * dy);
 }
 
 function calculateDistance(x1, y1, x2, y2) {
@@ -554,10 +581,15 @@ function aimbot() {
             if (retval == 0x0) {
                 return;
             }
-            const x = natives.LogicGameObjectClient_getX(retval);
-            const y = natives.LogicGameObjectClient_getY(retval);
-            latestX.push(x);
-            latestY.push(y);
+            const rawX = natives.LogicGameObjectClient_getX(retval);
+            const rawY = natives.LogicGameObjectClient_getY(retval);
+
+            // EMA filtr — vyhladí šum / lag skoky v pozici
+            emaX = emaX === null ? rawX : config.emaAlpha * rawX + (1 - config.emaAlpha) * emaX;
+            emaY = emaY === null ? rawY : config.emaAlpha * rawY + (1 - config.emaAlpha) * emaY;
+
+            latestX.push(emaX);
+            latestY.push(emaY);
 
             const now = Date.now();
 
@@ -585,13 +617,20 @@ function aimbot() {
                 const ownLogicCharacter = natives.LogicBattleModeClient_getOwnCharacter(battleMode);
                 const ownX = natives.LogicGameObjectClient_getX(ownLogicCharacter);
                 const ownY = natives.LogicGameObjectClient_getY(ownLogicCharacter);
-                const timeToHit = config.timeToHitMultiplyCoeficient * calculateTimeToHit(
-                    ownX, 
-                    ownY, 
-                    latestX.array[latestX.array.length - 1], 
-                    latestY.array[latestY.array.length - 1]
-                );
-                const predictedPos = predictFuturePosition(timeToHit);
+
+                let predictedPos;
+                const isMoving = getVelocityMagnitude() > config.movementThreshold;
+
+                if (isMoving) {
+                    // Iterativní predikce — přesnější pro pohybující se cíle
+                    predictedPos = predictIterative(ownX, ownY);
+                } else {
+                    // Cíl stojí — aim přímo na aktuální pozici bez predikce
+                    predictedPos = {
+                        x: latestX.array[latestX.array.length - 1],
+                        y: latestY.array[latestY.array.length - 1]
+                    };
+                }
 
                 args[5] = ptr(0);
                 args[1] = ptr(Math.round(predictedPos.x));

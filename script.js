@@ -23,6 +23,8 @@ function getClassLoader() {
         ScrollView: Java.use("android.widget.ScrollView"),
         Button: Java.use("android.widget.Button"),
         GradientDrawable: Java.use("android.graphics.drawable.GradientDrawable"),
+        SeekBar: Java.use("android.widget.SeekBar"),
+        SeekBar_OnSeekBarChangeListener: Java.use("android.widget.SeekBar$OnSeekBarChangeListener"),
     };
 }
 
@@ -152,24 +154,16 @@ class Menu {
 
         // ScrollView pro logy
         this.#logScrollView = cl.ScrollView.$new(activity);
-        //const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, 0);
-        //slp.weight = 1;
-
         const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 260));
-        this.#logScrollView.setLayoutParams(slp);
-
         this.#logScrollView.setLayoutParams(slp);
         this.#logScrollView.setBackground(makeRoundedDrawable(cl, "#0D0A1A", 16, activity));
         const sp = dp(activity, 10);
         this.#logScrollView.setPadding(sp, sp, sp, sp);
 
-        //this.#logTextView = cl.TextView.$new(activity);
-        //this.#logTextView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
         this.#logTextView = cl.TextView.$new(activity);
         const tvLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
         this.#logTextView.setLayoutParams(tvLp);
         this.#logTextView.setMinHeight(dp(activity, 200));
-
         this.#logTextView.setTextColor(cl.Color.parseColor("#AAFFAA"));
         this.#logTextView.setTextSize(13);
         this.#logScrollView.addView(this.#logTextView);
@@ -267,6 +261,56 @@ class Menu {
         this.#scrollLayout.addView(btn);
     }
 
+    // Přidá slider pro nastavení hodnoty (min, max, default, callback(value))
+    addSlider(id, label, minVal, maxVal, defaultVal, onChange) {
+        const cl = this.#cl;
+        const activity = this.#activity;
+
+        // Wrapper
+        const wrapper = cl.LinearLayout.$new(activity);
+        wrapper.setOrientation(wrapper.VERTICAL.value);
+        const wlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+        wlp.setMargins(0, 0, 0, dp(activity, 10));
+        wrapper.setLayoutParams(wlp);
+        wrapper.setBackground(makeRoundedDrawable(cl, "#231A3A", 12, activity));
+        const wp = dp(activity, 8);
+        wrapper.setPadding(wp, wp, wp, wp);
+
+        // Label + aktuální hodnota
+        const labelView = cl.TextView.$new(activity);
+        labelView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+        labelView.setTextColor(cl.Color.parseColor("#CCBBFF"));
+        labelView.setTextSize(12);
+        labelView.setText(cl.String.$new(label + ": " + defaultVal));
+
+        // SeekBar
+        const seekBar = cl.SeekBar.$new(activity);
+        const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+        slp.setMargins(0, dp(activity, 4), 0, 0);
+        seekBar.setLayoutParams(slp);
+        seekBar.setMax(maxVal - minVal);
+        seekBar.setProgress(defaultVal - minVal);
+
+        const SliderListener = Java.registerClass({
+            name: "com.example.SliderChange" + id,
+            implements: [cl.SeekBar_OnSeekBarChangeListener],
+            methods: {
+                onProgressChanged(sb, progress, fromUser) {
+                    const val = minVal + progress;
+                    labelView.setText(cl.String.$new(label + ": " + val));
+                    onChange(val);
+                },
+                onStartTrackingTouch(sb) {},
+                onStopTrackingTouch(sb) {}
+            }
+        });
+        seekBar.setOnSeekBarChangeListener(SliderListener.$new());
+
+        wrapper.addView(labelView);
+        wrapper.addView(seekBar);
+        this.#scrollLayout.addView(wrapper);
+    }
+
     addLogButton() {
         const cl = this.#cl;
         const activity = this.#activity;
@@ -313,14 +357,6 @@ class Menu {
                 const sv = this.#logScrollView;
                 if (sv) sv.fullScroll(0x00000082);
             } catch(e) {}
-        });
-    }
-
-    logaas(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        logMessages.push(`[${timestamp}] ${message}`);
-        Java.scheduleOnMainThread(() => {
-            this.updateLogView();
         });
     }
 
@@ -400,7 +436,6 @@ const OFFSETS = {
     someGuiShit: 0x55DD98,
     stringCopyCtor: 0xDCF970,
     stringCtor: 0xDCF8F0,
-    stringTableGetString: 0x96D7B0,
     stringString: 0xDCF7E0,
     updateAutoshoot: 0x8076A0
 };
@@ -562,6 +597,7 @@ function aimbot() {
                 args[1] = ptr(Math.round(predictedPos.x));
                 args[2] = ptr(Math.round(predictedPos.y));
             } catch (e) {
+                log("aimbot error: " + e.message);
             }
         },
     });
@@ -588,9 +624,22 @@ function main() {
             menu.setColors("#82da48", "#406e36");
 
             menu.addButton("aim_bot", "Aim Bot", {
-                 on: () => {state.aimbot = true;},
-                 off: () => {state.aimbot = false;}
+                 on: () => { state.aimbot = true; },
+                 off: () => { state.aimbot = false; }
             });
+
+            // Slider pro projectile speed (500 - 8000, default 3255)
+            menu.addSlider(
+                "proj_speed",
+                "Proj Speed",
+                500,
+                8000,
+                config.projectileSpeed,
+                (val) => {
+                    config.projectileSpeed = val;
+                    log("projectileSpeed: " + val);
+                }
+            );
 
             menu.addLogButton();
 

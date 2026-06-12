@@ -460,7 +460,9 @@ const config = {
     timeToHitMultiplyCoeficient: 0.8,
     emaAlpha: 0.4,           // EMA vyhlazení: 0.0 = maximální vyhlazení, 1.0 = raw
     iterativeSteps: 3,       // počet iterací predikce
-    movementThreshold: 50    // minimální pohyb pro predikci (jinak aim na aktuální pozici)
+    movementThreshold: 50,   // minimální pohyb pro predikci (jinak aim na aktuální pozici)
+    maxRange: 10000,         // maximální dosah střely ve world units (0 = vypnuto)
+    wallCheckEnabled: true   // zda kontrolovat zdi mezi hráčem a cílem
 };
 //CONFIG
 
@@ -475,6 +477,75 @@ let battleMode = null;
 let lastTime = 0;
 let emaX = null;
 let emaY = null;
+
+// Tile mapa — aktualizuje se v logicBattleModeClient_update
+let currentTileMap = null;
+let tileMapWidth  = 0;
+let tileMapHeight = 0;
+let tileMapCount  = 0;
+let tilesArrayPtr = null;
+
+// Převod world souřadnic <-> tile souřadnice
+function worldToTile(worldCoord) {
+    return Math.floor(worldCoord / 300);
+}
+
+// Přečte data jednoho tile z pole (vrátí null pokud mimo mapu nebo chyba)
+function getTileData(tx, ty) {
+    try {
+        if (!tilesArrayPtr || tx < 0 || ty < 0 || tx >= tileMapWidth || ty >= tileMapHeight) return null;
+        const i = ty * tileMapWidth + tx;
+        if (i >= tileMapCount) return null;
+        const tilePtr = tilesArrayPtr.add(i * 8).readPointer();
+        if (!tilePtr || tilePtr.isNull()) return null;
+        return tilePtr;
+    } catch(e) {
+        return null;
+    }
+}
+
+// Vrátí true pokud tile na (tx, ty) blokuje střely
+function tileBlocksProjectile(tx, ty) {
+    const tilePtr = getTileData(tx, ty);
+    if (!tilePtr) return false;
+    try {
+        const blocksProj = tilePtr.add(0x49).readU8();
+        return blocksProj !== 0;
+    } catch(e) {
+        return false;
+    }
+}
+
+// Bresenhámův algoritmus — projde všechny tile na přímce od (x0,y0) do (x1,y1)
+// Vrátí true pokud je na cestě zeď blokující střelu
+function hasWallBetween(wx0, wy0, wx1, wy1) {
+    if (!tilesArrayPtr || tileMapWidth === 0) return false;
+
+    let tx0 = worldToTile(wx0);
+    let ty0 = worldToTile(wy0);
+    const tx1 = worldToTile(wx1);
+    const ty1 = worldToTile(wy1);
+
+    const dx = Math.abs(tx1 - tx0);
+    const dy = Math.abs(ty1 - ty0);
+    const sx = tx0 < tx1 ? 1 : -1;
+    const sy = ty0 < ty1 ? 1 : -1;
+    let err = dx - dy;
+
+    const maxSteps = dx + dy + 2;
+    for (let step = 0; step < maxSteps; step++) {
+        // Přeskočíme počáteční tile (tam stojíme my) a koncový tile (tam je cíl)
+        if (!(tx0 === worldToTile(wx0) && ty0 === worldToTile(wy0)) &&
+            !(tx0 === tx1 && ty0 === ty1)) {
+            if (tileBlocksProjectile(tx0, ty0)) return true;
+        }
+        if (tx0 === tx1 && ty0 === ty1) break;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; tx0 += sx; }
+        if (e2 <  dx) { err += dx; ty0 += sy; }
+    }
+    return false;
+}
 
 function createRecentArray(max = 2) {
     const arr = [];
@@ -618,6 +689,20 @@ function aimbot() {
                 const ownX = natives.LogicGameObjectClient_getX(ownLogicCharacter);
                 const ownY = natives.LogicGameObjectClient_getY(ownLogicCharacter);
 
+                const targetX = latestX.array[latestX.array.length - 1];
+                const targetY = latestY.array[latestY.array.length - 1];
+
+                // Kontrola maximálního dosahu
+                if (config.maxRange > 0) {
+                    const dist = calculateDistance(ownX, ownY, targetX, targetY);
+                    if (dist > config.maxRange) return;
+                }
+
+                // Kontrola zdi mezi hráčem a cílem (aktuální pozice cíle)
+                if (config.wallCheckEnabled && hasWallBetween(ownX, ownY, targetX, targetY)) {
+                    return;
+                }
+
                 let predictedPos;
                 const isMoving = getVelocityMagnitude() > config.movementThreshold;
 
@@ -626,10 +711,15 @@ function aimbot() {
                     predictedPos = predictIterative(ownX, ownY);
                 } else {
                     // Cíl stojí — aim přímo na aktuální pozici bez predikce
-                    predictedPos = {
-                        x: latestX.array[latestX.array.length - 1],
-                        y: latestY.array[latestY.array.length - 1]
-                    };
+                    predictedPos = { x: targetX, y: targetY };
+                }
+
+                // Kontrola zdi i pro předpovídanou pozici (pokud se cíl pohybuje)
+                if (config.wallCheckEnabled && isMoving &&
+                    hasWallBetween(ownX, ownY, predictedPos.x, predictedPos.y)) {
+                    // Střela by šla do zdi — aim na aktuální pozici místo předpovídané
+                    if (hasWallBetween(ownX, ownY, targetX, targetY)) return;
+                    predictedPos = { x: targetX, y: targetY };
                 }
 
                 args[5] = ptr(0);
@@ -644,6 +734,30 @@ function aimbot() {
     Interceptor.attach(base.add(OFFSETS.logicBattleModeClient_update), {
         onEnter: function(args) {
             battleMode = args[0];
+
+            // Načtení tile mapy
+            try {
+                const objMgr = battleMode.add(40).readPointer();
+                if (!objMgr || objMgr.isNull()) return;
+
+                const logicTileMap = objMgr.add(0xf8).readPointer();
+                if (!logicTileMap || logicTileMap.isNull()) return;
+
+                // mapData je přímo logicTileMap
+                const mapData = logicTileMap;
+                const w = mapData.add(0xc4).readInt();
+                const h = mapData.add(0xc8).readInt();
+                const cnt = mapData.add(0xdc).readInt();
+                const arr = mapData.add(0x20).readPointer();
+
+                if (w > 0 && h > 0 && cnt > 0 && arr && !arr.isNull()) {
+                    tileMapWidth  = w;
+                    tileMapHeight = h;
+                    tileMapCount  = cnt;
+                    tilesArrayPtr = arr;
+                    currentTileMap = logicTileMap;
+                }
+            } catch(e) {}
         }
     });
 
@@ -667,6 +781,11 @@ function main() {
                  off: () => { state.aimbot = false; }
             });
 
+            menu.addButton("wall_check", "Wall Check", {
+                on:  () => { config.wallCheckEnabled = true;  log("wall check: ON");  },
+                off: () => { config.wallCheckEnabled = false; log("wall check: OFF"); }
+            }, true);
+
             // Slider pro projectile speed (500 - 8000, default 3255)
             menu.addSlider(
                 "proj_speed",
@@ -677,6 +796,19 @@ function main() {
                 (val) => {
                     config.projectileSpeed = val;
                     log("projectileSpeed: " + val);
+                }
+            );
+
+            // Slider pro maximální dosah (1000 - 20000, default 10000; 0 = vypnuto)
+            menu.addSlider(
+                "max_range",
+                "Max Range",
+                1000,
+                20000,
+                config.maxRange,
+                (val) => {
+                    config.maxRange = val;
+                    log("maxRange: " + val);
                 }
             );
 

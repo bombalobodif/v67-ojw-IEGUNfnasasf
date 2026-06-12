@@ -462,7 +462,9 @@ const config = {
     iterativeSteps: 3,       // počet iterací predikce
     movementThreshold: 50,   // minimální pohyb pro predikci (jinak aim na aktuální pozici)
     maxRange: 10000,         // maximální dosah střely ve world units (0 = vypnuto)
-    wallCheckEnabled: true   // zda kontrolovat zdi mezi hráčem a cílem
+    wallCheckEnabled: true,  // zda kontrolovat zdi mezi hráčem a cílem
+    arcMode: false,          // true = predikce pro obloukové střely (fixní air time)
+    arcAirTime: 1.2          // fixní air time obloukových střel v sekundách
 };
 //CONFIG
 
@@ -704,10 +706,13 @@ function aimbot() {
                     return;
                 }
 
-                // Starý algoritmus — timeToHit z aktuální pozice cíle
-                const timeToHit = config.timeToHitMultiplyCoeficient * calculateTimeToHit(
-                    ownX, ownY, targetX, targetY
-                );
+                // Výpočet timeToHit podle módu
+                // Arc mód: střela letí vždy fixní air time bez ohledu na vzdálenost
+                // Linear mód: timeToHit = distance / projectileSpeed
+                const timeToHit = config.arcMode
+                    ? config.timeToHitMultiplyCoeficient * config.arcAirTime
+                    : config.timeToHitMultiplyCoeficient * calculateTimeToHit(ownX, ownY, targetX, targetY);
+
                 const predictedPos = predictFuturePosition(timeToHit);
 
                 // Kontrola zdi i pro předpovídanou pozici
@@ -783,6 +788,24 @@ function main() {
                 on:  () => { config.wallCheckEnabled = true;  log("wall check: ON");  },
                 off: () => { config.wallCheckEnabled = false; log("wall check: OFF"); }
             }, true);
+
+            menu.addButton("arc_mode", "Arc Mode", {
+                on:  () => { config.arcMode = true;  log("arc mode: ON (airTime=" + config.arcAirTime + "s)"); },
+                off: () => { config.arcMode = false; log("arc mode: OFF (linear)"); }
+            }, false);
+
+            // Slider pro air time obloukových střel (0.5 - 3.0s, krok 0.1s → 5-30 * 0.1)
+            menu.addSlider(
+                "arc_airtime",
+                "Arc Air Time (x0.1s)",
+                5,
+                30,
+                Math.round(config.arcAirTime * 10),
+                (val) => {
+                    config.arcAirTime = val / 10;
+                    log("arcAirTime: " + config.arcAirTime + "s");
+                }
+            );
 
             // Slider pro projectile speed (500 - 8000, default 3255)
             menu.addSlider(

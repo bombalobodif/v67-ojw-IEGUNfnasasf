@@ -698,28 +698,26 @@ function aimbot() {
                     if (dist > config.maxRange) return;
                 }
 
-                // Kontrola zdi mezi hráčem a cílem (aktuální pozice cíle)
+                // Kontrola zdi mezi hráčem a aktuální pozicí cíle
                 if (config.wallCheckEnabled && hasWallBetween(ownX, ownY, targetX, targetY)) {
+                    log("wall blocked: target at (" + Math.round(targetX) + "," + Math.round(targetY) + ")");
                     return;
                 }
 
-                let predictedPos;
-                const isMoving = getVelocityMagnitude() > config.movementThreshold;
+                // Starý algoritmus — timeToHit z aktuální pozice cíle
+                const timeToHit = config.timeToHitMultiplyCoeficient * calculateTimeToHit(
+                    ownX, ownY, targetX, targetY
+                );
+                const predictedPos = predictFuturePosition(timeToHit);
 
-                if (isMoving) {
-                    // Iterativní predikce — přesnější pro pohybující se cíle
-                    predictedPos = predictIterative(ownX, ownY);
-                } else {
-                    // Cíl stojí — aim přímo na aktuální pozici bez predikce
-                    predictedPos = { x: targetX, y: targetY };
-                }
-
-                // Kontrola zdi i pro předpovídanou pozici (pokud se cíl pohybuje)
-                if (config.wallCheckEnabled && isMoving &&
-                    hasWallBetween(ownX, ownY, predictedPos.x, predictedPos.y)) {
-                    // Střela by šla do zdi — aim na aktuální pozici místo předpovídané
-                    if (hasWallBetween(ownX, ownY, targetX, targetY)) return;
-                    predictedPos = { x: targetX, y: targetY };
+                // Kontrola zdi i pro předpovídanou pozici
+                if (config.wallCheckEnabled && hasWallBetween(ownX, ownY, predictedPos.x, predictedPos.y)) {
+                    log("wall blocked: predicted (" + Math.round(predictedPos.x) + "," + Math.round(predictedPos.y) + ") -> aim current");
+                    // Fallback na aktuální pozici — zeď za rohem
+                    args[5] = ptr(0);
+                    args[1] = ptr(Math.round(targetX));
+                    args[2] = ptr(Math.round(targetY));
+                    return;
                 }
 
                 args[5] = ptr(0);

@@ -725,7 +725,7 @@ var state = {
   spinner: false,
   killaura: false
 };
-function setState2(feature, value) {
+function setState(feature, value) {
   if (!(feature in state)) return;
   const v = !!value;
   state[feature] = v;
@@ -3313,7 +3313,7 @@ var globalMenu = null;
 function setGlobalMenu(menu) {
   globalMenu = menu;
 }
-function guiLog2(message) {
+function guiLog(message) {
   if (globalMenu) globalMenu.log(message);
 }
 function getLogMessages() {
@@ -3351,7 +3351,7 @@ function _push(lvl, cat, msg, data) {
   if (data !== void 0) entry.data = data;
   _buf2.push(entry);
   try {
-    guiLog2(`[${cat}] ${msg}`);
+    guiLog(`[${cat}] ${msg}`);
   } catch (_) {
   }
   if (_buf2.length >= 32) {
@@ -3532,6 +3532,9 @@ function screenSize(activity) {
 var VIS_VISIBLE = 0;
 var VIS_GONE = 8;
 var SCROLL_BOTTOM = 130;
+function guiLog2(message) {
+  pushLog(message);
+}
 var Menu = class {
   #cl;
   #activity;
@@ -3800,7 +3803,7 @@ var Menu = class {
       mod.enabled = on;
       btn.setText(cl.String.$new(on ? "ON" : "OFF"));
       btn.setTextColor(cl.Color.parseColor(THEME.text));
-      btn.setBackground(on ? makeStrokeDrawable(cl, this.#colorOn, THEME.accentBright, 8, 1, activity) : makeRoundedDrawable(cl, this.#colorOff, 8, activity));
+      btn.setBackground(on ? makeStrokeDrawable(cl, that.#colorOn, THEME.accentBright, 8, 1, activity) : makeRoundedDrawable(cl, that.#colorOff, 8, activity));
     };
     apply(mod.enabled);
     const ToggleListener = Java.registerClass({
@@ -3812,10 +3815,10 @@ var Menu = class {
           apply(next);
           if (mod.featureKey) setState(mod.featureKey, next);
           if (next) {
-            guiLog(mod.label + ": ON");
+            guiLog2(mod.label + ": ON");
             if (mod.onEnable) mod.onEnable();
           } else {
-            guiLog(mod.label + ": OFF");
+            guiLog2(mod.label + ": OFF");
             if (mod.onDisable) mod.onDisable();
           }
         }
@@ -3912,7 +3915,7 @@ var Menu = class {
           valueView.setText(cl.String.$new(format(val)));
           updateFill(progress);
           w.onChange(val);
-          if (!silent) guiLog(w.label + ": " + format(val));
+          if (!silent) guiLog2(w.label + ": " + format(val));
         },
         onStartTrackingTouch() {
         },
@@ -4290,7 +4293,7 @@ function registerDefaultModules(registry) {
   registry.module("serverip", "Server IP", "Tools", {
     setup(r) {
       r.action("fetch_ip", "Show server IP", () => {
-        guiLog2("IP: " + getServerIP());
+        guiLog("IP: " + getServerIP());
       }, true);
     }
   });
@@ -4342,7 +4345,7 @@ function launchGui(attempt) {
         }
         menu.start();
         _guiReady = true;
-        guiLog2("REvenge GUI ready");
+        guiLog("REvenge GUI ready");
       } catch (e) {
         guiError("gui", e);
         if (attempt < MAX_RETRIES) setTimeout(() => launchGui(attempt + 1), RETRY_MS);
@@ -4424,7 +4427,7 @@ rpc.exports = {
   togglefeature(feature, value) {
     const ALLOWED = { aimbot: 1, autododge: 1, esp: 1, name: 1, spinner: 1, killaura: 1 };
     if (!ALLOWED[feature]) return;
-    setState2(feature, !!value);
+    setState(feature, !!value);
     if (!value) {
       if (feature === "aimbot") resetAimbot();
       if (feature === "autododge") resetAutododge();

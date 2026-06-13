@@ -3432,7 +3432,16 @@ function getClassLoader() {
   };
 }
 function dp(context, value) {
-  return parseInt(value * context.getResources().getDisplayMetrics().density);
+  const metrics = context.getResources().getDisplayMetrics();
+  const density = metrics.density;
+  const d = density && typeof density.value === "number" ? density.value : Number(density);
+  return value * d + 0.5 | 0;
+}
+function setMargins4(lp, left, top, right, bottom) {
+  lp.setMargins(left | 0, top | 0, right | 0, bottom | 0);
+}
+function setPadding4(view, left, top, right, bottom) {
+  view.setPadding(left | 0, top | 0, right | 0, bottom | 0);
 }
 function _activityFromChoose() {
   let found = null;
@@ -3464,15 +3473,15 @@ function makeRoundedDrawable(cl, colorHex, radiusDp, activity) {
   const drawable = cl.GradientDrawable.$new();
   drawable.setShape(cl.GradientDrawable.RECTANGLE.value);
   drawable.setColor(cl.Color.parseColor(colorHex));
-  drawable.setCornerRadius(dp(activity, radiusDp));
+  drawable.setCornerRadius(dp(activity, radiusDp) * 1);
   return drawable;
 }
 function makeStrokeDrawable(cl, fillHex, strokeHex, radiusDp, strokeDp, activity) {
   const drawable = cl.GradientDrawable.$new();
   drawable.setShape(cl.GradientDrawable.RECTANGLE.value);
   drawable.setColor(cl.Color.parseColor(fillHex));
-  drawable.setStroke(dp(activity, strokeDp), cl.Color.parseColor(strokeHex));
-  drawable.setCornerRadius(dp(activity, radiusDp));
+  drawable.setStroke(dp(activity, strokeDp) | 0, cl.Color.parseColor(strokeHex));
+  drawable.setCornerRadius(dp(activity, radiusDp) * 1);
   return drawable;
 }
 function guiError(label, err) {
@@ -3530,7 +3539,7 @@ var Menu = class {
     this.#mainLayout.setOrientation(this.#mainLayout.VERTICAL.value);
     const mainFrame = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
     mainFrame.gravity = cl.Gravity.TOP.value | cl.Gravity.START.value;
-    mainFrame.setMargins(dp(activity, 12), dp(activity, 56), 0, 0);
+    setMargins4(mainFrame, dp(activity, 12), dp(activity, 56), 0, 0);
     this.#mainLayout.setLayoutParams(mainFrame);
     this.#openBtn = cl.Button.$new(activity);
     const bp = cl.LinearLayout_LayoutParams.$new(dp(activity, 52), dp(activity, 52));
@@ -3542,12 +3551,12 @@ var Menu = class {
     this.#openBtn.setElevation(dp(activity, 6));
     this.#menuLayout = cl.LinearLayout.$new(activity);
     const mlp = cl.LinearLayout_LayoutParams.$new(dp(activity, 248), this.#WRAP);
-    mlp.setMargins(0, dp(activity, 6), 0, 0);
+    setMargins4(mlp, 0, dp(activity, 6), 0, 0);
     this.#menuLayout.setLayoutParams(mlp);
     this.#menuLayout.setOrientation(this.#menuLayout.VERTICAL.value);
     this.#menuLayout.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.cardBorder, 18, 1, activity));
     const pad = dp(activity, 10);
-    this.#menuLayout.setPadding(pad, pad, pad, pad);
+    setPadding4(this.#menuLayout, pad, pad, pad, pad);
     this.#menuLayout.setVisibility(VIS_GONE);
     this.#menuLayout.setElevation(dp(activity, 8));
     const header = cl.TextView.$new(activity);
@@ -3557,11 +3566,11 @@ var Menu = class {
     header.setTextSize(17);
     header.setTypeface(cl.Typeface.DEFAULT_BOLD.value);
     header.setGravity(cl.Gravity.CENTER.value);
-    header.setPadding(0, 0, 0, dp(activity, 6));
+    setPadding4(header, 0, 0, 0, dp(activity, 6));
     this.#menuLayout.addView(header);
     const divider = cl.View.$new(activity);
     const dlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 2));
-    dlp.setMargins(0, 0, 0, dp(activity, 8));
+    setMargins4(dlp, 0, 0, 0, dp(activity, 8));
     divider.setLayoutParams(dlp);
     divider.setBackground(makeRoundedDrawable(cl, THEME.accent, 1, activity));
     this.#menuLayout.addView(divider);
@@ -3609,7 +3618,7 @@ var Menu = class {
     const activity = this.#activity;
     const label = cl.TextView.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    lp.setMargins(0, dp(activity, 10), 0, dp(activity, 4));
+    setMargins4(lp, 0, dp(activity, 10), 0, dp(activity, 4));
     label.setLayoutParams(lp);
     label.setText(cl.String.$new(title.toUpperCase()));
     label.setTextColor(cl.Color.parseColor(THEME.textMuted));
@@ -3627,8 +3636,8 @@ var Menu = class {
     const colorOff = this.#colorOff;
     const btn = cl.Button.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    lp.setMargins(0, 0, 0, dp(activity, 6));
-    lp.height = dp(activity, 42);
+    setMargins4(lp, 0, 0, 0, dp(activity, 6));
+    lp.height = dp(activity, 42) | 0;
     btn.setLayoutParams(lp);
     btn.setText(cl.String.$new(label));
     btn.setTextColor(cl.Color.parseColor(THEME.text));
@@ -3665,8 +3674,8 @@ var Menu = class {
     const activity = this.#activity;
     const btn = cl.Button.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    lp.setMargins(0, 0, 0, dp(activity, 6));
-    lp.height = dp(activity, 40);
+    setMargins4(lp, 0, 0, 0, dp(activity, 6));
+    lp.height = dp(activity, 40) | 0;
     btn.setLayoutParams(lp);
     btn.setText(cl.String.$new(label));
     btn.setTextColor(cl.Color.parseColor(accent ? THEME.text : THEME.textMuted));
@@ -3689,11 +3698,11 @@ var Menu = class {
     const wrapper = cl.LinearLayout.$new(activity);
     wrapper.setOrientation(wrapper.VERTICAL.value);
     const wlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    wlp.setMargins(0, 0, 0, dp(activity, 8));
+    setMargins4(wlp, 0, 0, 0, dp(activity, 8));
     wrapper.setLayoutParams(wlp);
     wrapper.setBackground(makeStrokeDrawable(cl, THEME.card, THEME.cardBorder, 12, 1, activity));
     const wp = dp(activity, 10);
-    wrapper.setPadding(wp, wp, wp, wp);
+    setPadding4(wrapper, wp, wp, wp, wp);
     const headerRow = cl.LinearLayout.$new(activity);
     headerRow.setOrientation(headerRow.HORIZONTAL.value);
     headerRow.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
@@ -3714,7 +3723,7 @@ var Menu = class {
     headerRow.addView(valueView);
     const trackWrap = cl.FrameLayout.$new(activity);
     const twlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 28));
-    twlp.setMargins(0, dp(activity, 4), 0, 0);
+    setMargins4(twlp, 0, dp(activity, 4), 0, 0);
     trackWrap.setLayoutParams(twlp);
     const trackBg = cl.View.$new(activity);
     const tblp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, dp(activity, 6));
@@ -3731,7 +3740,7 @@ var Menu = class {
     seekBar.setLayoutParams(slp);
     seekBar.setMax(Math.round((maxVal - minVal) / step));
     seekBar.setProgress(Math.round((defaultVal - minVal) / step));
-    seekBar.setPadding(dp(activity, 4), 0, dp(activity, 4), 0);
+    setPadding4(seekBar, dp(activity, 4), 0, dp(activity, 4), 0);
     const thumb = cl.GradientDrawable.$new();
     thumb.setShape(cl.GradientDrawable.OVAL.value);
     thumb.setColor(cl.Color.parseColor(THEME.thumb));
@@ -3796,8 +3805,8 @@ var Menu = class {
     const that = this;
     const btn = cl.Button.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    lp.setMargins(0, 0, 0, dp(activity, 6));
-    lp.height = dp(activity, 40);
+    setMargins4(lp, 0, 0, 0, dp(activity, 6));
+    lp.height = dp(activity, 40) | 0;
     btn.setLayoutParams(lp);
     btn.setText(cl.String.$new("\u{1F5FA}  Mapa"));
     btn.setTextColor(cl.Color.parseColor(THEME.text));
@@ -3833,8 +3842,8 @@ var Menu = class {
     const that = this;
     const btn = cl.Button.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    lp.setMargins(0, 0, 0, dp(activity, 6));
-    lp.height = dp(activity, 40);
+    setMargins4(lp, 0, 0, 0, dp(activity, 6));
+    lp.height = dp(activity, 40) | 0;
     btn.setLayoutParams(lp);
     btn.setText(cl.String.$new("\u{1F4CB}  Log"));
     btn.setTextColor(cl.Color.parseColor(THEME.text));
@@ -3869,10 +3878,10 @@ var Menu = class {
     card.setOrientation(card.VERTICAL.value);
     card.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.accentDim, 20, 2, activity));
     const cp = dp(activity, 14);
-    card.setPadding(cp, cp, cp, cp);
+    setPadding4(card, cp, cp, cp, cp);
     const title = cl.TextView.$new(activity);
     const titleLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    titleLp.setMargins(0, 0, 0, dp(activity, 10));
+    setMargins4(titleLp, 0, 0, 0, dp(activity, 10));
     title.setLayoutParams(titleLp);
     title.setText(cl.String.$new("\u{1F4CB}  Log"));
     title.setTextColor(cl.Color.parseColor(THEME.accentBright));
@@ -3884,7 +3893,7 @@ var Menu = class {
     this.#logScrollView.setLayoutParams(slp);
     this.#logScrollView.setBackground(makeRoundedDrawable(cl, THEME.bg, 12, activity));
     const sp = dp(activity, 10);
-    this.#logScrollView.setPadding(sp, sp, sp, sp);
+    setPadding4(this.#logScrollView, sp, sp, sp, sp);
     this.#logTextView = cl.TextView.$new(activity);
     const tvLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
     this.#logTextView.setLayoutParams(tvLp);
@@ -3895,8 +3904,8 @@ var Menu = class {
     this.#logScrollView.addView(this.#logTextView);
     const closeBtn = cl.Button.$new(activity);
     const cbp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    cbp.setMargins(0, dp(activity, 10), 0, 0);
-    cbp.height = dp(activity, 42);
+    setMargins4(cbp, 0, dp(activity, 10), 0, 0);
+    cbp.height = dp(activity, 42) | 0;
     closeBtn.setLayoutParams(cbp);
     closeBtn.setText(cl.String.$new("\u2715  Zav\u0159\xEDt"));
     closeBtn.setTextColor(cl.Color.parseColor(THEME.text));
@@ -3923,13 +3932,13 @@ var Menu = class {
     this.#mapOverlay = cl.FrameLayout.$new(activity);
     const olp = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
     olp.gravity = cl.Gravity.TOP.value | cl.Gravity.END.value;
-    olp.setMargins(0, dp(activity, 8), dp(activity, 8), 0);
+    setMargins4(olp, 0, dp(activity, 8), dp(activity, 8), 0);
     this.#mapOverlay.setLayoutParams(olp);
     this.#mapOverlay.setBackground(makeStrokeDrawable(cl, "#CC0A0A0A", THEME.accentDim, 10, 1, activity));
     this.#mapOverlay.setVisibility(VIS_GONE);
     this.#mapImageView = cl.ImageView.$new(activity);
     const ilp = cl.FrameLayout_LayoutParams.$new(dp(activity, 200), dp(activity, 200));
-    ilp.setMargins(dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
+    setMargins4(ilp, dp(activity, 4), dp(activity, 4), dp(activity, 4), dp(activity, 4));
     this.#mapImageView.setLayoutParams(ilp);
     this.#mapOverlay.addView(this.#mapImageView);
   }

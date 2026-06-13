@@ -3434,25 +3434,6 @@ function getClassLoader() {
 function dp(context, value) {
   return parseInt(value * context.getResources().getDisplayMetrics().density);
 }
-function _activityFromThread(cl) {
-  const thread = cl.ActivityThread.sCurrentActivityThread.value;
-  if (!thread) return null;
-  const map = thread.mActivities.value;
-  if (!map) return null;
-  const size = map.size();
-  let fallback = null;
-  for (let i = 0; i < size; i++) {
-    try {
-      const record = Java.cast(map.valueAt(i), cl.ActivityThread_ActivityClientRecord);
-      const activity = record.activity.value;
-      if (!activity) continue;
-      if (!fallback) fallback = activity;
-      if (!activity.isFinishing()) return activity;
-    } catch (_) {
-    }
-  }
-  return fallback;
-}
 function _activityFromChoose() {
   let found = null;
   Java.choose("android.app.Activity", {
@@ -3472,15 +3453,12 @@ function _activityFromChoose() {
 }
 function getMainActivity(cl) {
   try {
-    const fromThread = _activityFromThread(cl);
-    if (fromThread) return fromThread;
+    const thread = cl.ActivityThread.sCurrentActivityThread.value;
+    const record = Java.cast(thread.mActivities.value.valueAt(0), cl.ActivityThread_ActivityClientRecord);
+    return record.activity.value;
   } catch (_) {
-  }
-  try {
     return _activityFromChoose();
-  } catch (_) {
   }
-  return null;
 }
 function makeRoundedDrawable(cl, colorHex, radiusDp, activity) {
   const drawable = cl.GradientDrawable.$new();
@@ -4051,30 +4029,13 @@ var Menu = class {
       }
     });
   }
-  start(onReady) {
-    const activity = this.#activity;
-    const contentView = this.#contentView;
-    const mainLayout = this.#mainLayout;
-    const logOverlay = this.#logOverlay;
-    const mapOverlay = this.#mapOverlay;
-    const openBtn = this.#openBtn;
-    const menuLayout = this.#menuLayout;
-    Java.scheduleOnMainThread(() => {
-      try {
-        activity.addContentView(contentView, contentView.getLayoutParams());
-        contentView.addView(mainLayout);
-        contentView.addView(logOverlay);
-        contentView.addView(mapOverlay);
-        mainLayout.addView(openBtn);
-        mainLayout.addView(menuLayout);
-        if (onReady) onReady();
-      } catch (e) {
-        try {
-          send({ type: "ERROR", code: 10, text: "gui start: " + (e.message || e) });
-        } catch (_) {
-        }
-      }
-    });
+  start() {
+    this.#activity.addContentView(this.#contentView, this.#contentView.getLayoutParams());
+    this.#contentView.addView(this.#mainLayout);
+    this.#contentView.addView(this.#logOverlay);
+    this.#contentView.addView(this.#mapOverlay);
+    this.#mainLayout.addView(this.#openBtn);
+    this.#mainLayout.addView(this.#menuLayout);
   }
 };
 
@@ -4158,66 +4119,53 @@ function registerDefaultModules(registry) {
 }
 
 // agent/ui/init.js
+var GUI_DELAY_MS = 5e3;
+var RETRY_MS = 500;
+var MAX_RETRIES = 120;
 var _guiReady = false;
-var _scheduling = false;
+var _scheduled = false;
 var _extraRegistrars = [];
-function tryStart(attempt) {
-  Java.perform(() => {
-    try {
-      const cl = getClassLoader();
-      const activity = getMainActivity(cl);
-      if (!activity) {
-        if (attempt < 120) setTimeout(() => tryStart(attempt + 1), 500);
-        else guiError("gui", new Error("activity not found after retries"));
-        return;
-      }
-      const menu = new Menu(cl, activity);
-      menu.setColors(THEME.on, THEME.off);
-      setGlobalMenu(menu);
-      const registry = new ModuleRegistry(menu);
-      registerDefaultModules(registry);
-      for (const fn of _extraRegistrars) {
-        try {
-          fn(registry);
-        } catch (e) {
-          guiError("module", e);
-        }
-      }
-      menu.start(() => {
-        _guiReady = true;
-        guiLog("REvenge GUI ready");
-      });
-    } catch (e) {
-      guiError("gui init", e);
-      if (attempt < 120) setTimeout(() => tryStart(attempt + 1), 500);
-    }
-  });
-}
-function hookActivityResume() {
-  try {
-    const Activity = Java.use("android.app.Activity");
-    const orig = Activity.onResume;
-    Activity.onResume.implementation = function() {
-      orig.call(this);
-      if (!_guiReady) setTimeout(() => tryStart(0), 200);
-    };
-  } catch (e) {
-    guiError("activity hook", e);
-  }
-}
-function initGui() {
+function launchGui(attempt) {
   if (_guiReady) return;
   if (typeof Java === "undefined" || !Java.available) {
-    setTimeout(initGui, 500);
+    if (attempt < MAX_RETRIES) setTimeout(() => launchGui(attempt + 1), RETRY_MS);
     return;
   }
-  if (!_scheduling) {
-    _scheduling = true;
-    Java.perform(() => {
-      hookActivityResume();
-      setTimeout(() => tryStart(0), 500);
+  Java.perform(() => {
+    Java.scheduleOnMainThread(() => {
+      try {
+        const cl = getClassLoader();
+        const activity = getMainActivity(cl);
+        if (!activity) {
+          if (attempt < MAX_RETRIES) setTimeout(() => launchGui(attempt + 1), RETRY_MS);
+          return;
+        }
+        const menu = new Menu(cl, activity);
+        menu.setColors(THEME.on, THEME.off);
+        setGlobalMenu(menu);
+        const registry = new ModuleRegistry(menu);
+        registerDefaultModules(registry);
+        for (const fn of _extraRegistrars) {
+          try {
+            fn(registry);
+          } catch (e) {
+            guiError("module", e);
+          }
+        }
+        menu.start();
+        _guiReady = true;
+        guiLog("REvenge GUI ready");
+      } catch (e) {
+        guiError("gui", e);
+        if (attempt < MAX_RETRIES) setTimeout(() => launchGui(attempt + 1), RETRY_MS);
+      }
     });
-  }
+  });
+}
+function initGui(delayMs = GUI_DELAY_MS) {
+  if (_guiReady || _scheduled) return;
+  _scheduled = true;
+  setTimeout(() => launchGui(0), delayMs);
 }
 
 // agent/index.js
@@ -4310,8 +4258,8 @@ rpc.exports = {
     setLoggingEnabled(value);
   }
 };
-initGui();
 try {
   rpc.exports.start();
 } catch (_) {
 }
+initGui();

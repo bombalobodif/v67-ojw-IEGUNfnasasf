@@ -3381,7 +3381,8 @@ var THEME = Object.freeze({
   accent: "#DC143C",
   accentBright: "#FF2244",
   accentDim: "#8B0000",
-  accentGlow: "#33FF2244",
+  accentGlow: "#FF2244",
+  // removed alpha prefix
   text: "#F5F5F5",
   textMuted: "#888888",
   textAccent: "#FF6B6B",
@@ -3393,8 +3394,8 @@ var THEME = Object.freeze({
   thumb: "#FF2244",
   mapWall: "#8B0000",
   mapMove: "#FF4444",
-  mapBg: "#0D0D0D",
-  overlay: "#CC000000"
+  mapBg: "#0D0D0D"
+  // overlay removed — use Color.argb(204, 0, 0, 0) directly
 });
 
 // agent/ui/android.js
@@ -3628,7 +3629,7 @@ var Menu = class {
     this.#openBtn.setOnClickListener(OpenListener.$new());
     this.#panelOverlay = createModalFrame(cl, activity);
     this.#panelOverlay.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
-    this.#panelOverlay.setBackgroundColor(cl.Color.parseColor(THEME.overlay));
+    this.#panelOverlay.setBackgroundColor(cl.Color.argb(204, 0, 0, 0));
     this.#panelOverlay.setVisibility(VIS_GONE);
     this.#panelCard = cl.LinearLayout.$new(activity);
     this.#panelCard.setOrientation(this.#panelCard.VERTICAL.value);
@@ -4025,7 +4026,7 @@ var Menu = class {
     const that = this;
     this.#logOverlay = createModalFrame(cl, activity);
     this.#logOverlay.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
-    this.#logOverlay.setBackgroundColor(cl.Color.parseColor(THEME.overlay));
+    this.#logOverlay.setBackgroundColor(cl.Color.argb(204, 0, 0, 0));
     this.#logOverlay.setVisibility(VIS_GONE);
     const card = cl.LinearLayout.$new(activity);
     const clp = cl.FrameLayout_LayoutParams.$new(dp(activity, 320), dp(activity, 400));
@@ -4079,7 +4080,7 @@ var Menu = class {
     olp.gravity = cl.Gravity.TOP.value | cl.Gravity.END.value;
     setMargins4(olp, 0, dp(activity, 8), dp(activity, 8), 0);
     this.#mapOverlay.setLayoutParams(olp);
-    this.#mapOverlay.setBackground(makeStrokeDrawable(cl, "#CC0A0A0A", THEME.accentDim, 10, 1, activity));
+    this.#mapOverlay.setBackground(makeStrokeDrawable(cl, THEME.bg, THEME.accentDim, 10, 1, activity));
     this.#mapOverlay.setVisibility(VIS_GONE);
     this.#mapImageView = cl.ImageView.$new(activity);
     const ilp = cl.FrameLayout_LayoutParams.$new(dp(activity, 200), dp(activity, 200));

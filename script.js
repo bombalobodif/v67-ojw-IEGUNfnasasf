@@ -25,6 +25,12 @@ function getClassLoader() {
         GradientDrawable: Java.use("android.graphics.drawable.GradientDrawable"),
         SeekBar: Java.use("android.widget.SeekBar"),
         SeekBar_OnSeekBarChangeListener: Java.use("android.widget.SeekBar$OnSeekBarChangeListener"),
+        Canvas: Java.use("android.graphics.Canvas"),
+        Paint: Java.use("android.graphics.Paint"),
+        Bitmap: Java.use("android.graphics.Bitmap"),
+        BitmapConfig: Java.use("android.graphics.Bitmap$Config"),
+        ImageView: Java.use("android.widget.ImageView"),
+        BitmapDrawable: Java.use("android.graphics.drawable.BitmapDrawable"),
     };
 }
 
@@ -51,6 +57,7 @@ class Menu {
     #contentView; #mainLayout; #menuLayout; #scrollLayout;
     #isOpen = false; #openBtn; #colorOn; #colorOff;
     #logOverlay; #logTextView; #logScrollView;
+    #mapOverlay; #mapImageView; #mapVisible = false;
 
     constructor(cl, activity) {
         this.#cl = cl;
@@ -119,6 +126,7 @@ class Menu {
 
         this.#addDrag();
         this.#buildLogOverlay();
+        this.#buildMapOverlay();
     }
 
     #buildLogOverlay() {
@@ -311,6 +319,128 @@ class Menu {
         this.#scrollLayout.addView(wrapper);
     }
 
+    #buildMapOverlay() {
+        const cl = this.#cl;
+        const activity = this.#activity;
+
+        // Průhledný kontejner v pravém horním rohu
+        this.#mapOverlay = cl.FrameLayout.$new(activity);
+        const olp = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
+        olp.gravity = cl.Gravity.TOP.value | cl.Gravity.END.value;
+        olp.setMargins(0, dp(activity, 8), dp(activity, 8), 0);
+        this.#mapOverlay.setLayoutParams(olp);
+        this.#mapOverlay.setBackground(makeRoundedDrawable(cl, "#CC000000", 10, activity));
+        this.#mapOverlay.setVisibility(0x8); // GONE
+
+        // ImageView pro vykreslení bitmapy
+        this.#mapImageView = cl.ImageView.$new(activity);
+        const ilp = cl.FrameLayout_LayoutParams.$new(dp(activity, 200), dp(activity, 200));
+        this.#mapImageView.setLayoutParams(ilp);
+        this.#mapOverlay.addView(this.#mapImageView);
+    }
+
+    // Překreslí mapu do bitmapy — voláno po každé změně tile mapy
+    refreshMapOverlay() {
+        if (!this.#mapVisible || !this.#mapImageView) return;
+        if (tileMapWidth === 0 || tileMapHeight === 0 || !tilesArrayPtr) return;
+
+        const cl = this.#cl;
+        const activity = this.#activity;
+        const SIZE = dp(activity, 200);
+
+        Java.scheduleOnMainThread(() => {
+            try {
+                const ARGB_8888 = cl.BitmapConfig.ARGB_8888.value;
+                const bmp = cl.Bitmap.createBitmap(SIZE, SIZE, ARGB_8888);
+                const canvas = cl.Canvas.$new(bmp);
+
+                // Pozadí
+                const bgPaint = cl.Paint.$new();
+                bgPaint.setColor(cl.Color.parseColor("#1A1A2E"));
+                canvas.drawRect(0, 0, SIZE, SIZE, bgPaint);
+
+                const tileW = SIZE / tileMapWidth;
+                const tileH = SIZE / tileMapHeight;
+
+                const wallPaint = cl.Paint.$new();
+                wallPaint.setColor(cl.Color.parseColor("#8855FF"));
+
+                const movePaint = cl.Paint.$new();
+                movePaint.setColor(cl.Color.parseColor("#FF4444"));
+
+                for (let ty = 0; ty < tileMapHeight; ty++) {
+                    for (let tx = 0; tx < tileMapWidth; tx++) {
+                        try {
+                            const i = ty * tileMapWidth + tx;
+                            if (i >= tileMapCount) continue;
+                            const tilePtr = tilesArrayPtr.add(i * 8).readPointer();
+                            if (!tilePtr || tilePtr.isNull()) continue;
+                            const ttype = tilePtr.readPointer();
+                            if (!ttype || ttype.isNull()) continue;
+                            const flags = ttype.add(0x56).readU16();
+                            const blocksMove = flags & 255;
+                            const blocksProj = (flags >> 8) & 255;
+
+                            if (blocksProj) {
+                                // Fialová = blokuje střely
+                                canvas.drawRect(
+                                    tx * tileW, ty * tileH,
+                                    (tx + 1) * tileW, (ty + 1) * tileH,
+                                    wallPaint
+                                );
+                            } else if (blocksMove) {
+                                // Červená = blokuje pohyb ale ne střely (průchozí pro proj)
+                                canvas.drawRect(
+                                    tx * tileW, ty * tileH,
+                                    (tx + 1) * tileW, (ty + 1) * tileH,
+                                    movePaint
+                                );
+                            }
+                        } catch(e) {}
+                    }
+                }
+
+                this.#mapImageView.setImageBitmap(bmp);
+            } catch(e) {
+                log("mapOverlay error: " + e.message);
+            }
+        });
+    }
+
+    addMapButton() {
+        const cl = this.#cl;
+        const activity = this.#activity;
+
+        const btn = cl.Button.$new(activity);
+        const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+        lp.setMargins(0, 0, 0, dp(activity, 8));
+        btn.setLayoutParams(lp);
+        btn.setText(cl.String.$new("🗺  Map"));
+        btn.setTextColor(cl.Color.parseColor("#FFFFFF"));
+        btn.setBackground(makeRoundedDrawable(cl, "#2E2A4A", 12, activity));
+
+        const that = this;
+        const MapToggle = Java.registerClass({
+            name: "com.example.MapToggle",
+            implements: [cl.View_OnClickListener],
+            methods: {
+                onClick(v) {
+                    that.#mapVisible = !that.#mapVisible;
+                    that.#mapOverlay.setVisibility(that.#mapVisible ? 0x0 : 0x8);
+                    v.setBackground(makeRoundedDrawable(
+                        cl,
+                        that.#mapVisible ? "#635985" : "#2E2A4A",
+                        12, activity
+                    ));
+                    if (that.#mapVisible) that.refreshMapOverlay();
+                    log("map overlay: " + (that.#mapVisible ? "ON" : "OFF"));
+                }
+            }
+        });
+        btn.setOnClickListener(MapToggle.$new());
+        this.#scrollLayout.addView(btn);
+    }
+
     addLogButton() {
         const cl = this.#cl;
         const activity = this.#activity;
@@ -374,6 +504,7 @@ class Menu {
         this.#activity.addContentView(this.#contentView, this.#contentView.getLayoutParams());
         this.#contentView.addView(this.#mainLayout);
         this.#contentView.addView(this.#logOverlay);
+        this.#contentView.addView(this.#mapOverlay);
         this.#mainLayout.addView(this.#openBtn);
         this.#mainLayout.addView(this.#menuLayout);
     }
@@ -511,7 +642,10 @@ function tileBlocksProjectile(tx, ty) {
     const tilePtr = getTileData(tx, ty);
     if (!tilePtr) return false;
     try {
-        const blocksProj = tilePtr.add(0x49).readU8();
+        const ttype = tilePtr.readPointer();
+        if (!ttype || ttype.isNull()) return false;
+        const flags = ttype.add(0x56).readU16();
+        const blocksProj = (flags >> 8) & 255;
         return blocksProj !== 0;
     } catch(e) {
         return false;
@@ -759,6 +893,7 @@ function aimbot() {
                     tileMapCount  = cnt;
                     tilesArrayPtr = arr;
                     currentTileMap = logicTileMap;
+                    if (globalMenu) globalMenu.refreshMapOverlay();
                 }
             } catch(e) {}
         }
@@ -788,6 +923,8 @@ function main() {
                 on:  () => { config.wallCheckEnabled = true;  log("wall check: ON");  },
                 off: () => { config.wallCheckEnabled = false; log("wall check: OFF"); }
             }, true);
+
+            menu.addMapButton();
 
             menu.addButton("arc_mode", "Arc Mode", {
                 on:  () => { config.arcMode = true;  log("arc mode: ON (airTime=" + config.arcAirTime + "s)"); },

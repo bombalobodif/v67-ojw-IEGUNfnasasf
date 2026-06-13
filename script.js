@@ -725,7 +725,7 @@ var state = {
   spinner: false,
   killaura: false
 };
-function setState(feature, value) {
+function setState2(feature, value) {
   if (!(feature in state)) return;
   const v = !!value;
   state[feature] = v;
@@ -3313,7 +3313,7 @@ var globalMenu = null;
 function setGlobalMenu(menu) {
   globalMenu = menu;
 }
-function guiLog(message) {
+function guiLog2(message) {
   if (globalMenu) globalMenu.log(message);
 }
 function getLogMessages() {
@@ -3351,7 +3351,7 @@ function _push(lvl, cat, msg, data) {
   if (data !== void 0) entry.data = data;
   _buf2.push(entry);
   try {
-    guiLog(`[${cat}] ${msg}`);
+    guiLog2(`[${cat}] ${msg}`);
   } catch (_) {
   }
   if (_buf2.length >= 32) {
@@ -3506,11 +3506,15 @@ var Menu = class {
   #MATCH;
   #WRAP;
   #contentView;
-  #mainLayout;
-  #menuLayout;
-  #scrollLayout;
-  #isOpen = false;
+  #floatLayout;
   #openBtn;
+  #panelOverlay;
+  #sidebarLayout;
+  #detailScroll;
+  #detailLayout;
+  #modules = [];
+  #sidebarItems = /* @__PURE__ */ new Map();
+  #selectedId = null;
   #colorOn;
   #colorOff;
   #logOverlay;
@@ -3526,183 +3530,289 @@ var Menu = class {
     this.#WRAP = cl.LinearLayout_LayoutParams.WRAP_CONTENT.value;
     this.#colorOn = THEME.on;
     this.#colorOff = THEME.off;
-    this.#build();
-  }
-  #build() {
-    const cl = this.#cl;
-    const activity = this.#activity;
-    this.#contentView = cl.FrameLayout.$new(activity);
-    const fp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-    this.#contentView.setLayoutParams(fp);
-    this.#contentView.setBackgroundColor(cl.Color.TRANSPARENT.value);
-    this.#mainLayout = cl.LinearLayout.$new(activity);
-    this.#mainLayout.setOrientation(this.#mainLayout.VERTICAL.value);
-    const mainFrame = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
-    mainFrame.gravity = cl.Gravity.TOP.value | cl.Gravity.START.value;
-    setMargins4(mainFrame, dp(activity, 12), dp(activity, 56), 0, 0);
-    this.#mainLayout.setLayoutParams(mainFrame);
-    this.#openBtn = cl.Button.$new(activity);
-    const bp = cl.LinearLayout_LayoutParams.$new(dp(activity, 52), dp(activity, 52));
-    this.#openBtn.setLayoutParams(bp);
-    this.#openBtn.setText(cl.String.$new("\u2620"));
-    this.#openBtn.setTextSize(20);
-    this.#openBtn.setTextColor(cl.Color.parseColor(THEME.text));
-    this.#openBtn.setBackground(makeStrokeDrawable(cl, THEME.accentDim, THEME.accent, 14, 2, activity));
-    this.#openBtn.setElevation(dp(activity, 6));
-    this.#menuLayout = cl.LinearLayout.$new(activity);
-    const mlp = cl.LinearLayout_LayoutParams.$new(dp(activity, 248), this.#WRAP);
-    setMargins4(mlp, 0, dp(activity, 6), 0, 0);
-    this.#menuLayout.setLayoutParams(mlp);
-    this.#menuLayout.setOrientation(this.#menuLayout.VERTICAL.value);
-    this.#menuLayout.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.cardBorder, 18, 1, activity));
-    const pad = dp(activity, 10);
-    setPadding4(this.#menuLayout, pad, pad, pad, pad);
-    this.#menuLayout.setVisibility(VIS_GONE);
-    this.#menuLayout.setElevation(dp(activity, 8));
-    const header = cl.TextView.$new(activity);
-    header.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
-    header.setText(cl.String.$new("REvenge"));
-    header.setTextColor(cl.Color.parseColor(THEME.accentBright));
-    header.setTextSize(17);
-    header.setTypeface(cl.Typeface.DEFAULT_BOLD.value);
-    header.setGravity(cl.Gravity.CENTER.value);
-    setPadding4(header, 0, 0, 0, dp(activity, 6));
-    this.#menuLayout.addView(header);
-    const divider = cl.View.$new(activity);
-    const dlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 2));
-    setMargins4(dlp, 0, 0, 0, dp(activity, 8));
-    divider.setLayoutParams(dlp);
-    divider.setBackground(makeRoundedDrawable(cl, THEME.accent, 1, activity));
-    this.#menuLayout.addView(divider);
-    const scroll = cl.ScrollView.$new(activity);
-    scroll.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 340)));
-    scroll.setVerticalScrollBarEnabled(false);
-    this.#scrollLayout = cl.LinearLayout.$new(activity);
-    this.#scrollLayout.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
-    this.#scrollLayout.setOrientation(this.#scrollLayout.VERTICAL.value);
-    scroll.addView(this.#scrollLayout);
-    this.#menuLayout.addView(scroll);
-    const that = this;
-    const ToggleListener = Java.registerClass({
-      name: uniqueClassName("MenuToggle"),
-      implements: [cl.View_OnClickListener],
-      methods: {
-        onClick() {
-          that.#isOpen = !that.#isOpen;
-          that.#menuLayout.setVisibility(that.#isOpen ? VIS_VISIBLE : VIS_GONE);
-          that.#openBtn.setBackground(makeStrokeDrawable(
-            cl,
-            that.#isOpen ? THEME.accent : THEME.accentDim,
-            that.#isOpen ? THEME.accentBright : THEME.accent,
-            14,
-            2,
-            activity
-          ));
-        }
-      }
-    });
-    this.#openBtn.setOnClickListener(ToggleListener.$new());
-    this.#addDrag();
+    this.#buildShell();
     this.#buildLogOverlay();
     this.#buildMapOverlay();
-  }
-  get scrollLayout() {
-    return this.#scrollLayout;
   }
   setColors(colorOn, colorOff) {
     this.#colorOn = colorOn;
     this.#colorOff = colorOff;
   }
-  addSection(title) {
-    const cl = this.#cl;
-    const activity = this.#activity;
-    const label = cl.TextView.$new(activity);
-    const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(lp, 0, dp(activity, 10), 0, dp(activity, 4));
-    label.setLayoutParams(lp);
-    label.setText(cl.String.$new(title.toUpperCase()));
-    label.setTextColor(cl.Color.parseColor(THEME.textMuted));
-    label.setTextSize(10);
-    try {
-      label.setLetterSpacing(0.12);
-    } catch (_) {
-    }
-    this.#scrollLayout.addView(label);
+  registerModule(mod) {
+    this.#modules.push(mod);
+    this.#addSidebarItem(mod);
+    if (!this.#selectedId) this.selectModule(mod.id);
   }
-  addButton(id, label, callbacks, defaultOn = false) {
+  selectModule(id) {
+    this.#selectedId = id;
+    for (const [mid, row] of this.#sidebarItems) {
+      this.#styleSidebarItem(mid, mid === id);
+    }
+    this.#renderDetail(id);
+  }
+  #panelSize() {
+    const activity = this.#activity;
+    const m = activity.getResources().getDisplayMetrics();
+    const sw = m.widthPixels && m.widthPixels.value !== void 0 ? m.widthPixels.value : m.widthPixels;
+    const sh = m.heightPixels && m.heightPixels.value !== void 0 ? m.heightPixels.value : m.heightPixels;
+    const w = Math.min(sw * 0.92 | 0, dp(activity, 540));
+    const h = Math.min(sh * 0.78 | 0, dp(activity, 440));
+    return { w: w | 0, h: h | 0 };
+  }
+  #buildShell() {
     const cl = this.#cl;
     const activity = this.#activity;
-    const colorOn = this.#colorOn;
-    const colorOff = this.#colorOff;
+    const { w: panelW, h: panelH } = this.#panelSize();
+    this.#contentView = cl.FrameLayout.$new(activity);
+    this.#contentView.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
+    this.#contentView.setBackgroundColor(cl.Color.TRANSPARENT.value);
+    this.#floatLayout = cl.FrameLayout.$new(activity);
+    const floatLp = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
+    floatLp.gravity = cl.Gravity.TOP.value | cl.Gravity.START.value;
+    setMargins4(floatLp, dp(activity, 12), dp(activity, 56), 0, 0);
+    this.#floatLayout.setLayoutParams(floatLp);
+    this.#openBtn = cl.Button.$new(activity);
+    const bp = cl.LinearLayout_LayoutParams.$new(dp(activity, 52), dp(activity, 52));
+    this.#openBtn.setLayoutParams(bp);
+    this.#openBtn.setText(cl.String.$new("RV"));
+    this.#openBtn.setTextSize(14);
+    this.#openBtn.setTextColor(cl.Color.parseColor(THEME.text));
+    this.#openBtn.setBackground(makeStrokeDrawable(cl, THEME.accentDim, THEME.accent, 14, 2, activity));
+    this.#floatLayout.addView(this.#openBtn);
+    this.#addDrag(this.#openBtn, this.#floatLayout);
+    const that = this;
+    const OpenListener = Java.registerClass({
+      name: uniqueClassName("OpenPanel"),
+      implements: [cl.View_OnClickListener],
+      methods: { onClick: () => that.#openPanel() }
+    });
+    this.#openBtn.setOnClickListener(OpenListener.$new());
+    this.#panelOverlay = cl.FrameLayout.$new(activity);
+    const polp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
+    this.#panelOverlay.setLayoutParams(polp);
+    this.#panelOverlay.setBackgroundColor(cl.Color.parseColor(THEME.overlay));
+    this.#panelOverlay.setVisibility(VIS_GONE);
+    const panelCard = cl.LinearLayout.$new(activity);
+    panelCard.setOrientation(panelCard.VERTICAL.value);
+    const cardLp = cl.FrameLayout_LayoutParams.$new(panelW, panelH);
+    cardLp.gravity = cl.Gravity.CENTER.value;
+    panelCard.setLayoutParams(cardLp);
+    panelCard.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.accentDim, 18, 2, activity));
+    setPadding4(panelCard, dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12));
+    const header = cl.LinearLayout.$new(activity);
+    header.setOrientation(header.HORIZONTAL.value);
+    header.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+    const title = cl.TextView.$new(activity);
+    const titleLp = cl.LinearLayout_LayoutParams.$new(0, this.#WRAP);
+    titleLp.weight = 1;
+    title.setLayoutParams(titleLp);
+    title.setText(cl.String.$new("REvenge"));
+    title.setTextColor(cl.Color.parseColor(THEME.accentBright));
+    title.setTextSize(18);
+    title.setTypeface(cl.Typeface.DEFAULT_BOLD.value);
+    const closeBtn = cl.Button.$new(activity);
+    closeBtn.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 72), dp(activity, 36)));
+    closeBtn.setText(cl.String.$new("Close"));
+    closeBtn.setTextSize(12);
+    closeBtn.setAllCaps(false);
+    closeBtn.setTextColor(cl.Color.parseColor(THEME.text));
+    closeBtn.setBackground(makeRoundedDrawable(cl, THEME.accentDim, 8, activity));
+    const CloseListener = Java.registerClass({
+      name: uniqueClassName("ClosePanel"),
+      implements: [cl.View_OnClickListener],
+      methods: { onClick: () => that.#closePanel() }
+    });
+    closeBtn.setOnClickListener(CloseListener.$new());
+    header.addView(title);
+    header.addView(closeBtn);
+    panelCard.addView(header);
+    const divider = cl.View.$new(activity);
+    const dlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 2));
+    setMargins4(dlp, 0, dp(activity, 8), 0, dp(activity, 8));
+    divider.setLayoutParams(dlp);
+    divider.setBackground(makeRoundedDrawable(cl, THEME.accent, 1, activity));
+    panelCard.addView(divider);
+    const body = cl.LinearLayout.$new(activity);
+    body.setOrientation(body.HORIZONTAL.value);
+    const bodyLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, 0);
+    bodyLp.weight = 1;
+    body.setLayoutParams(bodyLp);
+    const sidebarScroll = cl.ScrollView.$new(activity);
+    sidebarScroll.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 118), this.#MATCH));
+    sidebarScroll.setVerticalScrollBarEnabled(true);
+    sidebarScroll.setFillViewport(true);
+    this.#sidebarLayout = cl.LinearLayout.$new(activity);
+    this.#sidebarLayout.setOrientation(this.#sidebarLayout.VERTICAL.value);
+    this.#sidebarLayout.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+    sidebarScroll.addView(this.#sidebarLayout);
+    this.#detailScroll = cl.ScrollView.$new(activity);
+    const detailLp = cl.LinearLayout_LayoutParams.$new(0, this.#MATCH);
+    detailLp.weight = 1;
+    setMargins4(detailLp, dp(activity, 8), 0, 0, 0);
+    this.#detailScroll.setLayoutParams(detailLp);
+    this.#detailScroll.setVerticalScrollBarEnabled(true);
+    this.#detailScroll.setFillViewport(true);
+    this.#detailLayout = cl.LinearLayout.$new(activity);
+    this.#detailLayout.setOrientation(this.#detailLayout.VERTICAL.value);
+    this.#detailLayout.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+    this.#detailScroll.addView(this.#detailLayout);
+    body.addView(sidebarScroll);
+    body.addView(this.#detailScroll);
+    panelCard.addView(body);
+    this.#panelOverlay.addView(panelCard);
+  }
+  #openPanel() {
+    this.#panelOverlay.setVisibility(VIS_VISIBLE);
+    if (this.#selectedId) this.#renderDetail(this.#selectedId);
+  }
+  #closePanel() {
+    this.#panelOverlay.setVisibility(VIS_GONE);
+  }
+  #addSidebarItem(mod) {
+    const cl = this.#cl;
+    const activity = this.#activity;
+    const that = this;
+    const prev = this.#modules[this.#modules.length - 2];
+    if (!prev || prev.section !== mod.section) {
+      const sec = cl.TextView.$new(activity);
+      const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+      setMargins4(slp, 0, dp(activity, 8), 0, dp(activity, 4));
+      sec.setLayoutParams(slp);
+      sec.setText(cl.String.$new(mod.section.toUpperCase()));
+      sec.setTextColor(cl.Color.parseColor(THEME.textMuted));
+      sec.setTextSize(9);
+      this.#sidebarLayout.addView(sec);
+    }
+    const item = cl.TextView.$new(activity);
+    const ilp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+    setMargins4(ilp, 0, 0, 0, dp(activity, 4));
+    ilp.height = dp(activity, 38) | 0;
+    item.setLayoutParams(ilp);
+    item.setText(cl.String.$new(mod.label));
+    item.setTextColor(cl.Color.parseColor(THEME.text));
+    item.setTextSize(12);
+    item.setGravity(cl.Gravity.CENTER_VERTICAL.value);
+    setPadding4(item, dp(activity, 8), 0, dp(activity, 8), 0);
+    item.setBackground(makeRoundedDrawable(cl, THEME.surfaceAlt, 8, activity));
+    const mid = mod.id;
+    const SelectListener = Java.registerClass({
+      name: uniqueClassName("Sel" + mid),
+      implements: [cl.View_OnClickListener],
+      methods: { onClick: () => that.selectModule(mid) }
+    });
+    item.setOnClickListener(SelectListener.$new());
+    this.#sidebarLayout.addView(item);
+    this.#sidebarItems.set(mod.id, item);
+  }
+  #styleSidebarItem(id, selected) {
+    const cl = this.#cl;
+    const activity = this.#activity;
+    const item = this.#sidebarItems.get(id);
+    if (!item) return;
+    item.setBackground(selected ? makeStrokeDrawable(cl, THEME.accentDim, THEME.accentBright, 8, 1, activity) : makeRoundedDrawable(cl, THEME.surfaceAlt, 8, activity));
+    item.setTextColor(cl.Color.parseColor(selected ? THEME.accentBright : THEME.text));
+  }
+  #renderDetail(id) {
+    const cl = this.#cl;
+    const activity = this.#activity;
+    const mod = this.#modules.find((m) => m.id === id);
+    if (!mod) return;
+    this.#detailLayout.removeAllViews();
+    const title = cl.TextView.$new(activity);
+    title.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+    title.setText(cl.String.$new(mod.label));
+    title.setTextColor(cl.Color.parseColor(THEME.text));
+    title.setTextSize(16);
+    title.setTypeface(cl.Typeface.DEFAULT_BOLD.value);
+    setPadding4(title, 0, 0, 0, dp(activity, 8));
+    this.#detailLayout.addView(title);
+    const hasToggle = mod.featureKey || mod.onEnable || mod.onDisable;
+    if (hasToggle) {
+      this.#detailLayout.addView(this.#makeToggleRow(mod));
+    }
+    for (const w of mod.widgets) {
+      const view = this.#makeWidget(w, mod);
+      if (view) this.#detailLayout.addView(view);
+    }
+  }
+  #makeToggleRow(mod) {
+    const cl = this.#cl;
+    const activity = this.#activity;
+    const that = this;
+    const row = cl.LinearLayout.$new(activity);
+    row.setOrientation(row.HORIZONTAL.value);
+    const rlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+    setMargins4(rlp, 0, 0, 0, dp(activity, 12));
+    row.setLayoutParams(rlp);
+    const label = cl.TextView.$new(activity);
+    const ll = cl.LinearLayout_LayoutParams.$new(0, this.#WRAP);
+    ll.weight = 1;
+    label.setLayoutParams(ll);
+    label.setText(cl.String.$new("Enabled"));
+    label.setTextColor(cl.Color.parseColor(THEME.textMuted));
+    label.setTextSize(13);
+    label.setGravity(cl.Gravity.CENTER_VERTICAL.value);
     const btn = cl.Button.$new(activity);
-    const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(lp, 0, 0, 0, dp(activity, 6));
-    lp.height = dp(activity, 42) | 0;
-    btn.setLayoutParams(lp);
-    btn.setText(cl.String.$new(label));
-    btn.setTextColor(cl.Color.parseColor(THEME.text));
-    btn.setTextSize(13);
+    btn.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 100), dp(activity, 38)));
+    btn.setTextSize(12);
     btn.setAllCaps(false);
-    let state2 = defaultOn;
-    const applyBg = (on) => {
-      btn.setBackground(on ? makeStrokeDrawable(cl, colorOn, THEME.accentBright, 10, 1, activity) : makeRoundedDrawable(cl, colorOff, 10, activity));
+    const apply = (on) => {
+      mod.enabled = on;
+      btn.setText(cl.String.$new(on ? "ON" : "OFF"));
+      btn.setTextColor(cl.Color.parseColor(THEME.text));
+      btn.setBackground(on ? makeStrokeDrawable(cl, this.#colorOn, THEME.accentBright, 8, 1, activity) : makeRoundedDrawable(cl, this.#colorOff, 8, activity));
     };
-    applyBg(state2);
-    if (defaultOn) callbacks.on();
-    const ClickListener = Java.registerClass({
-      name: uniqueClassName("Btn" + id),
+    apply(mod.enabled);
+    const ToggleListener = Java.registerClass({
+      name: uniqueClassName("Tog" + mod.id),
       implements: [cl.View_OnClickListener],
       methods: {
-        onClick(v) {
-          state2 = !state2;
-          applyBg(state2);
-          state2 ? callbacks.on() : callbacks.off();
+        onClick() {
+          const next = !mod.enabled;
+          apply(next);
+          if (mod.featureKey) setState(mod.featureKey, next);
+          if (next) {
+            guiLog(mod.label + ": ON");
+            if (mod.onEnable) mod.onEnable();
+          } else {
+            guiLog(mod.label + ": OFF");
+            if (mod.onDisable) mod.onDisable();
+          }
         }
       }
     });
-    btn.setOnClickListener(ClickListener.$new());
-    this.#scrollLayout.addView(btn);
-    return {
-      setState: (on) => {
-        state2 = !!on;
-        applyBg(state2);
-      }
-    };
+    btn.setOnClickListener(ToggleListener.$new());
+    row.addView(label);
+    row.addView(btn);
+    return row;
   }
-  addActionButton(id, label, onClick, accent = false) {
+  #makeWidget(w, mod) {
+    switch (w.type) {
+      case "slider":
+        return this.#makeSlider(w);
+      case "action":
+        return this.#makeAction(w);
+      case "map":
+        return this.#makeMapToggle();
+      case "log":
+        return this.#makeLogOpen();
+      default:
+        return null;
+    }
+  }
+  #makeSlider(w) {
     const cl = this.#cl;
     const activity = this.#activity;
-    const btn = cl.Button.$new(activity);
-    const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(lp, 0, 0, 0, dp(activity, 6));
-    lp.height = dp(activity, 40) | 0;
-    btn.setLayoutParams(lp);
-    btn.setText(cl.String.$new(label));
-    btn.setTextColor(cl.Color.parseColor(accent ? THEME.text : THEME.textMuted));
-    btn.setTextSize(12);
-    btn.setAllCaps(false);
-    btn.setBackground(makeRoundedDrawable(cl, accent ? THEME.card : THEME.surfaceAlt, 10, activity));
-    const ClickListener = Java.registerClass({
-      name: uniqueClassName("Act" + id),
-      implements: [cl.View_OnClickListener],
-      methods: { onClick: () => onClick() }
-    });
-    btn.setOnClickListener(ClickListener.$new());
-    this.#scrollLayout.addView(btn);
-  }
-  addSlider(id, label, minVal, maxVal, defaultVal, onChange, opts = {}) {
-    const cl = this.#cl;
-    const activity = this.#activity;
-    const step = opts.step || 1;
-    const format = opts.format || ((v) => String(v));
+    const step = w.opts.step || 1;
+    const format = w.opts.format || ((v) => String(v));
+    const silent = w.opts.silent === true;
     const wrapper = cl.LinearLayout.$new(activity);
     wrapper.setOrientation(wrapper.VERTICAL.value);
     const wlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(wlp, 0, 0, 0, dp(activity, 8));
+    setMargins4(wlp, 0, 0, 0, dp(activity, 10));
     wrapper.setLayoutParams(wlp);
-    wrapper.setBackground(makeStrokeDrawable(cl, THEME.card, THEME.cardBorder, 12, 1, activity));
-    const wp = dp(activity, 10);
-    setPadding4(wrapper, wp, wp, wp, wp);
+    wrapper.setBackground(makeStrokeDrawable(cl, THEME.card, THEME.cardBorder, 10, 1, activity));
+    setPadding4(wrapper, dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
     const headerRow = cl.LinearLayout.$new(activity);
     headerRow.setOrientation(headerRow.HORIZONTAL.value);
     headerRow.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
@@ -3710,21 +3820,18 @@ var Menu = class {
     const labelLp = cl.LinearLayout_LayoutParams.$new(0, this.#WRAP);
     labelLp.weight = 1;
     labelView.setLayoutParams(labelLp);
+    labelView.setText(cl.String.$new(w.label));
     labelView.setTextColor(cl.Color.parseColor(THEME.textMuted));
     labelView.setTextSize(11);
-    labelView.setText(cl.String.$new(label));
     const valueView = cl.TextView.$new(activity);
-    valueView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#WRAP, this.#WRAP));
     valueView.setTextColor(cl.Color.parseColor(THEME.accentBright));
     valueView.setTextSize(13);
     valueView.setTypeface(cl.Typeface.MONOSPACE.value);
-    valueView.setText(cl.String.$new(format(defaultVal)));
+    valueView.setText(cl.String.$new(format(w.defaultVal)));
     headerRow.addView(labelView);
     headerRow.addView(valueView);
     const trackWrap = cl.FrameLayout.$new(activity);
-    const twlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 28));
-    setMargins4(twlp, 0, dp(activity, 4), 0, 0);
-    trackWrap.setLayoutParams(twlp);
+    trackWrap.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 28)));
     const trackBg = cl.View.$new(activity);
     const tblp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, dp(activity, 6));
     tblp.gravity = cl.Gravity.CENTER_VERTICAL.value;
@@ -3736,10 +3843,9 @@ var Menu = class {
     trackFill.setLayoutParams(fillLp);
     trackFill.setBackground(makeRoundedDrawable(cl, THEME.trackFill, 3, activity));
     const seekBar = cl.SeekBar.$new(activity);
-    const slp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-    seekBar.setLayoutParams(slp);
-    seekBar.setMax(Math.round((maxVal - minVal) / step));
-    seekBar.setProgress(Math.round((defaultVal - minVal) / step));
+    seekBar.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
+    seekBar.setMax(Math.round((w.max - w.min) / step));
+    seekBar.setProgress(Math.round((w.defaultVal - w.min) / step));
     setPadding4(seekBar, dp(activity, 4), 0, dp(activity, 4), 0);
     const thumb = cl.GradientDrawable.$new();
     thumb.setShape(cl.GradientDrawable.OVAL.value);
@@ -3750,22 +3856,23 @@ var Menu = class {
     seekBar.setBackgroundColor(cl.Color.TRANSPARENT.value);
     const updateFill = (progress) => {
       const ratio = seekBar.getMax() > 0 ? progress / seekBar.getMax() : 0;
-      const w = trackWrap.getWidth();
-      if (w > 0) {
-        const fillLp2 = trackFill.getLayoutParams();
-        fillLp2.width = Math.max(dp(activity, 6), w * ratio | 0);
-        trackFill.setLayoutParams(fillLp2);
+      const tw = trackWrap.getWidth();
+      if (tw > 0) {
+        const flp = trackFill.getLayoutParams();
+        flp.width = Math.max(dp(activity, 6), tw * ratio | 0);
+        trackFill.setLayoutParams(flp);
       }
     };
     const SliderListener = Java.registerClass({
-      name: uniqueClassName("Slider" + id),
+      name: uniqueClassName("Sl" + w.id),
       implements: [cl.SeekBar_OnSeekBarChangeListener],
       methods: {
         onProgressChanged(sb, progress) {
-          const val = minVal + progress * step;
+          const val = w.min + progress * step;
           valueView.setText(cl.String.$new(format(val)));
           updateFill(progress);
-          onChange(val);
+          w.onChange(val);
+          if (!silent) guiLog(w.label + ": " + format(val));
         },
         onStartTrackingTouch() {
         },
@@ -3775,13 +3882,11 @@ var Menu = class {
     });
     seekBar.setOnSeekBarChangeListener(SliderListener.$new());
     const layoutListener = Java.registerClass({
-      name: uniqueClassName("TrackLayout" + id),
+      name: uniqueClassName("SlLay" + w.id),
       implements: [Java.use("android.view.View$OnLayoutChangeListener")],
-      methods: {
-        onLayoutChange() {
-          updateFill(seekBar.getProgress());
-        }
-      }
+      methods: { onLayoutChange() {
+        updateFill(seekBar.getProgress());
+      } }
     });
     trackWrap.addOnLayoutChangeListener(layoutListener.$new());
     trackWrap.addView(trackBg);
@@ -3789,69 +3894,81 @@ var Menu = class {
     trackWrap.addView(seekBar);
     wrapper.addView(headerRow);
     wrapper.addView(trackWrap);
-    this.#scrollLayout.addView(wrapper);
-    return {
-      setValue: (val) => {
-        const p = Math.round((val - minVal) / step);
-        seekBar.setProgress(p);
-        valueView.setText(cl.String.$new(format(val)));
-        updateFill(p);
-      }
-    };
+    return wrapper;
   }
-  addMapButton() {
+  #makeAction(w) {
+    const cl = this.#cl;
+    const activity = this.#activity;
+    const btn = cl.Button.$new(activity);
+    const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+    setMargins4(lp, 0, 0, 0, dp(activity, 8));
+    lp.height = dp(activity, 40) | 0;
+    btn.setLayoutParams(lp);
+    btn.setText(cl.String.$new(w.label));
+    btn.setTextColor(cl.Color.parseColor(w.accent ? THEME.text : THEME.textMuted));
+    btn.setTextSize(12);
+    btn.setAllCaps(false);
+    btn.setBackground(makeRoundedDrawable(cl, w.accent ? THEME.card : THEME.surfaceAlt, 8, activity));
+    const Listener = Java.registerClass({
+      name: uniqueClassName("Act" + w.id),
+      implements: [cl.View_OnClickListener],
+      methods: { onClick: () => w.onClick() }
+    });
+    btn.setOnClickListener(Listener.$new());
+    return btn;
+  }
+  #makeMapToggle() {
     const cl = this.#cl;
     const activity = this.#activity;
     const that = this;
     const btn = cl.Button.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(lp, 0, 0, 0, dp(activity, 6));
     lp.height = dp(activity, 40) | 0;
     btn.setLayoutParams(lp);
-    btn.setText(cl.String.$new("\u{1F5FA}  Mapa"));
-    btn.setTextColor(cl.Color.parseColor(THEME.text));
+    btn.setText(cl.String.$new(that.#mapVisible ? "Hide map" : "Show map"));
     btn.setTextSize(12);
     btn.setAllCaps(false);
-    btn.setBackground(makeRoundedDrawable(cl, THEME.surfaceAlt, 10, activity));
-    const MapToggle = Java.registerClass({
-      name: uniqueClassName("MapToggle"),
+    btn.setTextColor(cl.Color.parseColor(THEME.text));
+    btn.setBackground(makeRoundedDrawable(cl, THEME.surfaceAlt, 8, activity));
+    const Listener = Java.registerClass({
+      name: uniqueClassName("MapTog"),
       implements: [cl.View_OnClickListener],
       methods: {
         onClick(v) {
           that.#mapVisible = !that.#mapVisible;
           that.#mapOverlay.setVisibility(that.#mapVisible ? VIS_VISIBLE : VIS_GONE);
+          v.setText(cl.String.$new(that.#mapVisible ? "Hide map" : "Show map"));
           v.setBackground(makeStrokeDrawable(
             cl,
             that.#mapVisible ? THEME.accentDim : THEME.surfaceAlt,
             that.#mapVisible ? THEME.accentBright : THEME.cardBorder,
-            10,
+            8,
             1,
             activity
           ));
           if (that.#mapVisible) that.refreshMapOverlay();
-          pushLog("mapa: " + (that.#mapVisible ? "ON" : "OFF"));
+          pushLog("Map: " + (that.#mapVisible ? "ON" : "OFF"));
         }
       }
     });
-    btn.setOnClickListener(MapToggle.$new());
-    this.#scrollLayout.addView(btn);
+    btn.setOnClickListener(Listener.$new());
+    return btn;
   }
-  addLogButton() {
+  #makeLogOpen() {
     const cl = this.#cl;
     const activity = this.#activity;
     const that = this;
     const btn = cl.Button.$new(activity);
     const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(lp, 0, 0, 0, dp(activity, 6));
     lp.height = dp(activity, 40) | 0;
     btn.setLayoutParams(lp);
-    btn.setText(cl.String.$new("\u{1F4CB}  Log"));
-    btn.setTextColor(cl.Color.parseColor(THEME.text));
+    btn.setText(cl.String.$new("Open log"));
     btn.setTextSize(12);
     btn.setAllCaps(false);
-    btn.setBackground(makeRoundedDrawable(cl, THEME.surfaceAlt, 10, activity));
-    const OpenLog = Java.registerClass({
-      name: uniqueClassName("OpenLog"),
+    btn.setTextColor(cl.Color.parseColor(THEME.text));
+    btn.setBackground(makeRoundedDrawable(cl, THEME.surfaceAlt, 8, activity));
+    const Listener = Java.registerClass({
+      name: uniqueClassName("LogOpen"),
       implements: [cl.View_OnClickListener],
       methods: {
         onClick() {
@@ -3860,15 +3977,15 @@ var Menu = class {
         }
       }
     });
-    btn.setOnClickListener(OpenLog.$new());
-    this.#scrollLayout.addView(btn);
+    btn.setOnClickListener(Listener.$new());
+    return btn;
   }
   #buildLogOverlay() {
     const cl = this.#cl;
     const activity = this.#activity;
+    const that = this;
     this.#logOverlay = cl.FrameLayout.$new(activity);
-    const olp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-    this.#logOverlay.setLayoutParams(olp);
+    this.#logOverlay.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
     this.#logOverlay.setBackgroundColor(cl.Color.parseColor(THEME.overlay));
     this.#logOverlay.setVisibility(VIS_GONE);
     const card = cl.LinearLayout.$new(activity);
@@ -3876,49 +3993,38 @@ var Menu = class {
     clp.gravity = cl.Gravity.CENTER.value;
     card.setLayoutParams(clp);
     card.setOrientation(card.VERTICAL.value);
-    card.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.accentDim, 20, 2, activity));
-    const cp = dp(activity, 14);
-    setPadding4(card, cp, cp, cp, cp);
+    card.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.accentDim, 16, 2, activity));
+    setPadding4(card, dp(activity, 14), dp(activity, 14), dp(activity, 14), dp(activity, 14));
     const title = cl.TextView.$new(activity);
-    const titleLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
-    setMargins4(titleLp, 0, 0, 0, dp(activity, 10));
-    title.setLayoutParams(titleLp);
-    title.setText(cl.String.$new("\u{1F4CB}  Log"));
+    title.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+    title.setText(cl.String.$new("Log"));
     title.setTextColor(cl.Color.parseColor(THEME.accentBright));
     title.setTextSize(16);
     title.setTypeface(cl.Typeface.DEFAULT_BOLD.value);
-    title.setGravity(cl.Gravity.CENTER.value);
+    setPadding4(title, 0, 0, 0, dp(activity, 10));
     this.#logScrollView = cl.ScrollView.$new(activity);
-    const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 250));
+    const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 260));
     this.#logScrollView.setLayoutParams(slp);
-    this.#logScrollView.setBackground(makeRoundedDrawable(cl, THEME.bg, 12, activity));
-    const sp = dp(activity, 10);
-    setPadding4(this.#logScrollView, sp, sp, sp, sp);
+    this.#logScrollView.setBackground(makeRoundedDrawable(cl, THEME.bg, 10, activity));
+    setPadding4(this.#logScrollView, dp(activity, 10), dp(activity, 10), dp(activity, 10), dp(activity, 10));
     this.#logTextView = cl.TextView.$new(activity);
-    const tvLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-    this.#logTextView.setLayoutParams(tvLp);
-    this.#logTextView.setMinHeight(dp(activity, 200));
+    this.#logTextView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
     this.#logTextView.setTextColor(cl.Color.parseColor(THEME.logText));
-    this.#logTextView.setTextSize(12);
+    this.#logTextView.setTextSize(11);
     this.#logTextView.setTypeface(cl.Typeface.MONOSPACE.value);
     this.#logScrollView.addView(this.#logTextView);
     const closeBtn = cl.Button.$new(activity);
     const cbp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
     setMargins4(cbp, 0, dp(activity, 10), 0, 0);
-    cbp.height = dp(activity, 42) | 0;
+    cbp.height = dp(activity, 40) | 0;
     closeBtn.setLayoutParams(cbp);
-    closeBtn.setText(cl.String.$new("\u2715  Zav\u0159\xEDt"));
+    closeBtn.setText(cl.String.$new("Close"));
+    closeBtn.setBackground(makeRoundedDrawable(cl, THEME.accentDim, 8, activity));
     closeBtn.setTextColor(cl.Color.parseColor(THEME.text));
-    closeBtn.setBackground(makeRoundedDrawable(cl, THEME.accentDim, 12, activity));
-    const that = this;
     const CloseListener = Java.registerClass({
       name: uniqueClassName("LogClose"),
       implements: [cl.View_OnClickListener],
-      methods: {
-        onClick() {
-          that.#logOverlay.setVisibility(VIS_GONE);
-        }
-      }
+      methods: { onClick: () => that.#logOverlay.setVisibility(VIS_GONE) }
     });
     closeBtn.setOnClickListener(CloseListener.$new());
     card.addView(title);
@@ -3942,24 +4048,24 @@ var Menu = class {
     this.#mapImageView.setLayoutParams(ilp);
     this.#mapOverlay.addView(this.#mapImageView);
   }
-  #addDrag() {
+  #addDrag(handle, mover) {
     const cl = this.#cl;
     let ix = 0, iy = 0, t0 = 0;
     const DragListener = Java.registerClass({
-      name: uniqueClassName("MenuDrag"),
+      name: uniqueClassName("Drag"),
       implements: [cl.View_OnTouchListener],
       methods: {
-        onTouch(view, event) {
+        onTouch(v, event) {
           switch (event.getAction()) {
             case cl.MotionEvent.ACTION_DOWN.value:
-              ix = view.getX() - event.getRawX();
-              iy = view.getY() - event.getRawY();
+              ix = mover.getX() - event.getRawX();
+              iy = mover.getY() - event.getRawY();
               t0 = Date.now();
               break;
             case cl.MotionEvent.ACTION_MOVE.value:
-              if (Date.now() - t0 > 150) {
-                view.setX(event.getRawX() + ix);
-                view.setY(event.getRawY() + iy);
+              if (Date.now() - t0 > 120) {
+                mover.setX(event.getRawX() + ix);
+                mover.setY(event.getRawY() + iy);
               }
               break;
           }
@@ -3967,14 +4073,14 @@ var Menu = class {
         }
       }
     });
-    this.#mainLayout.setOnTouchListener(DragListener.$new());
+    handle.setOnTouchListener(DragListener.$new());
   }
   refreshMapOverlay() {
     if (!this.#mapVisible || !this.#mapImageView) return;
     const wall = getWallCache();
     const tileMapWidth = getWallCacheW();
     const tileMapHeight = getWallCacheH();
-    if (!wall || tileMapWidth === 0 || tileMapHeight === 0) return;
+    if (!wall || !tileMapWidth || !tileMapHeight) return;
     const cl = this.#cl;
     const activity = this.#activity;
     const SIZE = dp(activity, 200);
@@ -3995,36 +4101,24 @@ var Menu = class {
           for (let tx = 0; tx < tileMapWidth; tx++) {
             const flags = wall[ty * tileMapWidth + tx];
             if (!flags) continue;
-            const blocksMove = flags & 128;
-            const blocksProj = flags & 64;
-            const paint = blocksProj ? wallPaint : blocksMove ? movePaint : null;
+            const paint = flags & 64 ? wallPaint : flags & 128 ? movePaint : null;
             if (!paint) continue;
-            canvas.drawRect(
-              tx * tileW,
-              ty * tileH,
-              (tx + 1) * tileW,
-              (ty + 1) * tileH,
-              paint
-            );
+            canvas.drawRect(tx * tileW, ty * tileH, (tx + 1) * tileW, (ty + 1) * tileH, paint);
           }
         }
         this.#mapImageView.setImageBitmap(bmp);
       } catch (e) {
-        pushLog("mapa error: " + e.message);
+        pushLog("Map error: " + e.message);
       }
     });
   }
   #syncLogView() {
-    const tv = this.#logTextView;
-    const sv = this.#logScrollView;
-    if (!tv) return;
+    if (!this.#logTextView) return;
     const msgs = getLogMessages();
-    const text = msgs.length > 0 ? msgs.join("\n") : "(\u017E\xE1dn\xE9 logy)";
-    tv.setText(this.#cl.String.$new(text));
-    if (sv) sv.fullScroll(SCROLL_BOTTOM);
+    this.#logTextView.setText(this.#cl.String.$new(msgs.length > 0 ? msgs.join("\n") : "(no logs)"));
+    if (this.#logScrollView) this.#logScrollView.fullScroll(SCROLL_BOTTOM);
   }
   updateLogView() {
-    if (!this.#logTextView) return;
     this.#syncLogView();
   }
   log(message) {
@@ -4040,91 +4134,136 @@ var Menu = class {
   }
   start() {
     this.#activity.addContentView(this.#contentView, this.#contentView.getLayoutParams());
-    this.#contentView.addView(this.#mainLayout);
+    this.#contentView.addView(this.#floatLayout);
+    this.#contentView.addView(this.#panelOverlay);
     this.#contentView.addView(this.#logOverlay);
     this.#contentView.addView(this.#mapOverlay);
-    this.#mainLayout.addView(this.#openBtn);
-    this.#mainLayout.addView(this.#menuLayout);
   }
 };
 
 // agent/ui/registry.js
 var ModuleRegistry = class {
   #menu;
+  #section = "General";
+  #current = null;
   constructor(menu) {
     this.#menu = menu;
   }
   section(title) {
-    this.#menu.addSection(title);
+    this.#section = title;
   }
-  toggle(id, label, featureKey, { onEnable, onDisable, defaultOn } = {}) {
-    const key = featureKey;
-    const initial = defaultOn !== void 0 ? defaultOn : key && state[key] !== void 0 ? !!state[key] : false;
-    return this.#menu.addButton(id, label, {
-      on: () => {
-        if (key) setState(key, true);
-        guiLog(`${label}: ON`);
-        if (onEnable) onEnable();
-      },
-      off: () => {
-        if (key) setState(key, false);
-        guiLog(`${label}: OFF`);
-        if (onDisable) onDisable();
-      }
-    }, initial);
+  module(id, label, section, opts = {}) {
+    const key = opts.featureKey ?? null;
+    const mod = {
+      id,
+      label,
+      section: section || this.#section,
+      featureKey: key,
+      defaultOn: opts.defaultOn,
+      onEnable: opts.onEnable || null,
+      onDisable: opts.onDisable || null,
+      enabled: opts.defaultOn !== void 0 ? !!opts.defaultOn : key && state[key] !== void 0 ? !!state[key] : false,
+      widgets: []
+    };
+    this.#current = mod;
+    if (opts.setup) opts.setup(this);
+    this.#menu.registerModule(mod);
+    this.#current = null;
   }
   slider(id, label, min, max, defaultVal, onChange, opts) {
-    return this.#menu.addSlider(id, label, min, max, defaultVal, (val) => {
-      onChange(val);
-      if (!opts || opts.silent !== true) {
-        guiLog(`${label}: ${opts?.format ? opts.format(val) : val}`);
-      }
-    }, opts);
+    if (!this.#current) return;
+    this.#current.widgets.push({
+      type: "slider",
+      id,
+      label,
+      min,
+      max,
+      defaultVal,
+      onChange,
+      opts: opts || {}
+    });
   }
   action(id, label, onClick, accent = false) {
-    this.#menu.addActionButton(id, label, onClick, accent);
+    if (!this.#current) return;
+    this.#current.widgets.push({ type: "action", id, label, onClick, accent });
+  }
+  mapToggle() {
+    if (!this.#current) return;
+    this.#current.widgets.push({ type: "map" });
+  }
+  logViewer() {
+    if (!this.#current) return;
+    this.#current.widgets.push({ type: "log" });
+  }
+  // Legacy shims — prefer module() + setup()
+  toggle(id, label, featureKey, opts = {}) {
+    this.module(id, label, this.#section, {
+      featureKey,
+      onEnable: opts.onEnable,
+      onDisable: opts.onDisable,
+      defaultOn: opts.defaultOn
+    });
   }
   mapButton() {
-    this.#menu.addMapButton();
+    this.module("map", "Map Overlay", this.#section, { setup: (r) => r.mapToggle() });
   }
   logButton() {
-    this.#menu.addLogButton();
+    this.module("log", "Log Viewer", this.#section, { setup: (r) => r.logViewer() });
   }
 };
 
 // agent/ui/modules.js
 function registerDefaultModules(registry) {
-  registry.section("Combat");
-  registry.toggle("aimbot", "\u{1F3AF}  Aimbot", "aimbot", {
+  registry.module("aimbot", "Aimbot", "Combat", {
+    featureKey: "aimbot",
     onDisable: () => resetAimbot()
   });
-  registry.toggle("killaura", "\u2694  Killaura", "killaura");
-  registry.toggle("autododge", "\u{1F6E1}  Autododge", "autododge", {
-    onDisable: () => resetAutododge()
+  registry.module("killaura", "Killaura", "Combat", {
+    featureKey: "killaura",
+    setup(r) {
+      r.slider("killaura_ms", "Fire interval (ms)", 200, 2e3, guiSettings.killauraIntervalMs, (v) => {
+        guiSettings.killauraIntervalMs = v | 0;
+      }, { step: 50, format: (v) => v + "ms", silent: true });
+    }
   });
-  registry.toggle("spinner", "\u{1F300}  Spinner", "spinner");
-  registry.section("Vizu\xE1l");
-  registry.toggle("esp", "\u{1F441}  ESP", "esp", {
+  registry.module("autododge", "Autododge", "Combat", {
+    featureKey: "autododge",
+    onDisable: () => resetAutododge(),
+    setup(r) {
+      r.slider("safety", "Safety margin", 10, 60, CONFIG.SAFETY_MARGIN, (v) => {
+        CONFIG.SAFETY_MARGIN = v;
+      }, { step: 1, silent: true });
+    }
+  });
+  registry.module("spinner", "Spinner", "Combat", {
+    featureKey: "spinner"
+  });
+  registry.module("esp", "ESP", "Visual", {
+    featureKey: "esp",
     onDisable: () => resetESP()
   });
-  registry.section("Nastaven\xED");
-  registry.slider("safety", "Safety margin", 10, 60, CONFIG.SAFETY_MARGIN, (v) => {
-    CONFIG.SAFETY_MARGIN = v;
-  }, { step: 1 });
-  registry.slider("killaura_ms", "Killaura interval (ms)", 200, 2e3, guiSettings.killauraIntervalMs, (v) => {
-    guiSettings.killauraIntervalMs = v | 0;
-  }, { step: 50, format: (v) => v + "ms" });
-  registry.section("N\xE1stroje");
-  registry.toggle("debug", "\u{1F41B}  Debug log", null, {
+  registry.module("debug", "Debug Log", "Tools", {
     defaultOn: false,
     onEnable: () => setLoggingEnabled(true),
     onDisable: () => setLoggingEnabled(false)
   });
-  registry.action("serverip", "\u{1F310}  Server IP", () => {
-    guiLog("IP: " + getServerIP());
-  }, true);
-  registry.mapButton();
-  registry.logButton();
+  registry.module("serverip", "Server IP", "Tools", {
+    setup(r) {
+      r.action("fetch_ip", "Show server IP", () => {
+        guiLog2("IP: " + getServerIP());
+      }, true);
+    }
+  });
+  registry.module("map", "Map Overlay", "Tools", {
+    setup(r) {
+      r.mapToggle();
+    }
+  });
+  registry.module("log", "Log Viewer", "Tools", {
+    setup(r) {
+      r.logViewer();
+    }
+  });
 }
 
 // agent/ui/init.js
@@ -4163,7 +4302,7 @@ function launchGui(attempt) {
         }
         menu.start();
         _guiReady = true;
-        guiLog("REvenge GUI ready");
+        guiLog2("REvenge GUI ready");
       } catch (e) {
         guiError("gui", e);
         if (attempt < MAX_RETRIES) setTimeout(() => launchGui(attempt + 1), RETRY_MS);
@@ -4245,7 +4384,7 @@ rpc.exports = {
   togglefeature(feature, value) {
     const ALLOWED = { aimbot: 1, autododge: 1, esp: 1, name: 1, spinner: 1, killaura: 1 };
     if (!ALLOWED[feature]) return;
-    setState(feature, !!value);
+    setState2(feature, !!value);
     if (!value) {
       if (feature === "aimbot") resetAimbot();
       if (feature === "autododge") resetAutododge();

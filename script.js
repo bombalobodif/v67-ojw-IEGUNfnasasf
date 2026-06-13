@@ -3495,6 +3495,37 @@ function guiError(label, err) {
   } catch (_) {
   }
 }
+function createModalFrame(cl, activity) {
+  const ViewGroup = Java.use("android.view.ViewGroup");
+  const ModalFrame = Java.registerClass({
+    name: uniqueClassName("ModalFrame"),
+    superClass: "android.widget.FrameLayout",
+    methods: {
+      dispatchTouchEvent: {
+        returnType: "boolean",
+        argumentTypes: ["android.view.MotionEvent"],
+        implementation(event) {
+          ViewGroup.dispatchTouchEvent.call(this, event);
+          return true;
+        }
+      }
+    }
+  });
+  const frame = ModalFrame.$new(activity);
+  frame.setClickable(true);
+  frame.setFocusable(true);
+  frame.setFocusableInTouchMode(true);
+  return frame;
+}
+function screenSize(activity) {
+  const m = activity.getResources().getDisplayMetrics();
+  const sw = m.widthPixels;
+  const sh = m.heightPixels;
+  return {
+    w: (sw && sw.value !== void 0 ? sw.value : sw) | 0,
+    h: (sh && sh.value !== void 0 ? sh.value : sh) | 0
+  };
+}
 
 // agent/ui/menu.js
 var VIS_VISIBLE = 0;
@@ -3523,6 +3554,7 @@ var Menu = class {
   #mapOverlay;
   #mapImageView;
   #mapVisible = false;
+  #panelCard = null;
   constructor(cl, activity) {
     this.#cl = cl;
     this.#activity = activity;
@@ -3550,68 +3582,75 @@ var Menu = class {
     }
     this.#renderDetail(id);
   }
-  #panelSize() {
+  #panelMetrics() {
     const activity = this.#activity;
-    const m = activity.getResources().getDisplayMetrics();
-    const sw = m.widthPixels && m.widthPixels.value !== void 0 ? m.widthPixels.value : m.widthPixels;
-    const sh = m.heightPixels && m.heightPixels.value !== void 0 ? m.heightPixels.value : m.heightPixels;
-    const w = Math.min(sw * 0.92 | 0, dp(activity, 540));
-    const h = Math.min(sh * 0.78 | 0, dp(activity, 440));
-    return { w: w | 0, h: h | 0 };
+    const { w: sw, h: sh } = screenSize(activity);
+    const panelW = Math.min(sw * 0.88 | 0, dp(activity, 520));
+    const panelH = Math.min(sh * 0.72 | 0, dp(activity, 400));
+    const pad = dp(activity, 14);
+    const headerH = dp(activity, 40);
+    const dividerBlock = dp(activity, 18);
+    const bodyH = Math.max(dp(activity, 200), panelH - pad * 2 - headerH - dividerBlock);
+    const gap = dp(activity, 10);
+    const innerW = panelW - pad * 2;
+    const sidebarW = innerW * 0.34 | 0;
+    const detailW = innerW - sidebarW - gap;
+    return { panelW, panelH, pad, bodyH, gap, sidebarW, detailW, headerH };
   }
   #buildShell() {
     const cl = this.#cl;
     const activity = this.#activity;
-    const { w: panelW, h: panelH } = this.#panelSize();
+    const that = this;
+    const M = this.#panelMetrics();
     this.#contentView = cl.FrameLayout.$new(activity);
     this.#contentView.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
     this.#contentView.setBackgroundColor(cl.Color.TRANSPARENT.value);
+    this.#contentView.setClickable(false);
+    this.#contentView.setFocusable(false);
     this.#floatLayout = cl.FrameLayout.$new(activity);
     const floatLp = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
     floatLp.gravity = cl.Gravity.TOP.value | cl.Gravity.START.value;
     setMargins4(floatLp, dp(activity, 12), dp(activity, 56), 0, 0);
     this.#floatLayout.setLayoutParams(floatLp);
     this.#openBtn = cl.Button.$new(activity);
-    const bp = cl.LinearLayout_LayoutParams.$new(dp(activity, 52), dp(activity, 52));
-    this.#openBtn.setLayoutParams(bp);
+    this.#openBtn.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 52), dp(activity, 52)));
     this.#openBtn.setText(cl.String.$new("RV"));
     this.#openBtn.setTextSize(14);
     this.#openBtn.setTextColor(cl.Color.parseColor(THEME.text));
     this.#openBtn.setBackground(makeStrokeDrawable(cl, THEME.accentDim, THEME.accent, 14, 2, activity));
     this.#floatLayout.addView(this.#openBtn);
     this.#addDrag(this.#openBtn, this.#floatLayout);
-    const that = this;
     const OpenListener = Java.registerClass({
       name: uniqueClassName("OpenPanel"),
       implements: [cl.View_OnClickListener],
       methods: { onClick: () => that.#openPanel() }
     });
     this.#openBtn.setOnClickListener(OpenListener.$new());
-    this.#panelOverlay = cl.FrameLayout.$new(activity);
-    const polp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-    this.#panelOverlay.setLayoutParams(polp);
+    this.#panelOverlay = createModalFrame(cl, activity);
+    this.#panelOverlay.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
     this.#panelOverlay.setBackgroundColor(cl.Color.parseColor(THEME.overlay));
     this.#panelOverlay.setVisibility(VIS_GONE);
-    const panelCard = cl.LinearLayout.$new(activity);
-    panelCard.setOrientation(panelCard.VERTICAL.value);
-    const cardLp = cl.FrameLayout_LayoutParams.$new(panelW, panelH);
+    this.#panelCard = cl.LinearLayout.$new(activity);
+    this.#panelCard.setOrientation(this.#panelCard.VERTICAL.value);
+    const cardLp = cl.FrameLayout_LayoutParams.$new(M.panelW | 0, M.panelH | 0);
     cardLp.gravity = cl.Gravity.CENTER.value;
-    panelCard.setLayoutParams(cardLp);
-    panelCard.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.accentDim, 18, 2, activity));
-    setPadding4(panelCard, dp(activity, 12), dp(activity, 12), dp(activity, 12), dp(activity, 12));
+    this.#panelCard.setLayoutParams(cardLp);
+    this.#panelCard.setBackground(makeStrokeDrawable(cl, THEME.surface, THEME.accentDim, 18, 2, activity));
+    setPadding4(this.#panelCard, M.pad, M.pad, M.pad, M.pad);
     const header = cl.LinearLayout.$new(activity);
     header.setOrientation(header.HORIZONTAL.value);
-    header.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+    header.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, M.headerH | 0));
     const title = cl.TextView.$new(activity);
-    const titleLp = cl.LinearLayout_LayoutParams.$new(0, this.#WRAP);
+    const titleLp = cl.LinearLayout_LayoutParams.$new(0, this.#MATCH);
     titleLp.weight = 1;
     title.setLayoutParams(titleLp);
     title.setText(cl.String.$new("REvenge"));
     title.setTextColor(cl.Color.parseColor(THEME.accentBright));
     title.setTextSize(18);
     title.setTypeface(cl.Typeface.DEFAULT_BOLD.value);
+    title.setGravity(cl.Gravity.CENTER_VERTICAL.value);
     const closeBtn = cl.Button.$new(activity);
-    closeBtn.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 72), dp(activity, 36)));
+    closeBtn.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 80), dp(activity, 36)));
     closeBtn.setText(cl.String.$new("Close"));
     closeBtn.setTextSize(12);
     closeBtn.setAllCaps(false);
@@ -3625,48 +3664,48 @@ var Menu = class {
     closeBtn.setOnClickListener(CloseListener.$new());
     header.addView(title);
     header.addView(closeBtn);
-    panelCard.addView(header);
+    this.#panelCard.addView(header);
     const divider = cl.View.$new(activity);
     const dlp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 2));
     setMargins4(dlp, 0, dp(activity, 8), 0, dp(activity, 8));
     divider.setLayoutParams(dlp);
     divider.setBackground(makeRoundedDrawable(cl, THEME.accent, 1, activity));
-    panelCard.addView(divider);
+    this.#panelCard.addView(divider);
     const body = cl.LinearLayout.$new(activity);
     body.setOrientation(body.HORIZONTAL.value);
-    const bodyLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, 0);
-    bodyLp.weight = 1;
-    body.setLayoutParams(bodyLp);
+    body.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, M.bodyH | 0));
     const sidebarScroll = cl.ScrollView.$new(activity);
-    sidebarScroll.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 118), this.#MATCH));
+    sidebarScroll.setLayoutParams(cl.LinearLayout_LayoutParams.$new(M.sidebarW | 0, M.bodyH | 0));
     sidebarScroll.setVerticalScrollBarEnabled(true);
-    sidebarScroll.setFillViewport(true);
+    sidebarScroll.setScrollbarFadingEnabled(false);
     this.#sidebarLayout = cl.LinearLayout.$new(activity);
     this.#sidebarLayout.setOrientation(this.#sidebarLayout.VERTICAL.value);
     this.#sidebarLayout.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
     sidebarScroll.addView(this.#sidebarLayout);
     this.#detailScroll = cl.ScrollView.$new(activity);
-    const detailLp = cl.LinearLayout_LayoutParams.$new(0, this.#MATCH);
-    detailLp.weight = 1;
-    setMargins4(detailLp, dp(activity, 8), 0, 0, 0);
+    const detailLp = cl.LinearLayout_LayoutParams.$new(M.detailW | 0, M.bodyH | 0);
+    setMargins4(detailLp, M.gap, 0, 0, 0);
     this.#detailScroll.setLayoutParams(detailLp);
     this.#detailScroll.setVerticalScrollBarEnabled(true);
-    this.#detailScroll.setFillViewport(true);
+    this.#detailScroll.setScrollbarFadingEnabled(false);
     this.#detailLayout = cl.LinearLayout.$new(activity);
     this.#detailLayout.setOrientation(this.#detailLayout.VERTICAL.value);
     this.#detailLayout.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
     this.#detailScroll.addView(this.#detailLayout);
     body.addView(sidebarScroll);
     body.addView(this.#detailScroll);
-    panelCard.addView(body);
-    this.#panelOverlay.addView(panelCard);
+    this.#panelCard.addView(body);
+    this.#panelOverlay.addView(this.#panelCard);
   }
   #openPanel() {
+    this.#floatLayout.setVisibility(VIS_GONE);
     this.#panelOverlay.setVisibility(VIS_VISIBLE);
+    this.#panelOverlay.bringToFront();
     if (this.#selectedId) this.#renderDetail(this.#selectedId);
   }
   #closePanel() {
     this.#panelOverlay.setVisibility(VIS_GONE);
+    this.#floatLayout.setVisibility(VIS_VISIBLE);
   }
   #addSidebarItem(mod) {
     const cl = this.#cl;
@@ -3984,7 +4023,7 @@ var Menu = class {
     const cl = this.#cl;
     const activity = this.#activity;
     const that = this;
-    this.#logOverlay = cl.FrameLayout.$new(activity);
+    this.#logOverlay = createModalFrame(cl, activity);
     this.#logOverlay.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
     this.#logOverlay.setBackgroundColor(cl.Color.parseColor(THEME.overlay));
     this.#logOverlay.setVisibility(VIS_GONE);

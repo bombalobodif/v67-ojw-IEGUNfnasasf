@@ -3196,11 +3196,12 @@ function worldToTile(x, y) {
 }
 
 // agent/features/pathbot.js
+// agent/features/pathbot.js
 var CFG3 = {
   REPLAN_MS: 250,
   WAYPOINT_REACH: 280,
   MOVE_OFFSET: 520,
-  FIRE_INTERVAL_MS: 450,
+  FIRE_INTERVAL_MS: 200,        // ↓ rychlejší střelba (bylo 450)
   MAX_PATH_DANGER: 380,
   MAX_AVG_DANGER: 140,
   MAX_TARGET_DIST: 9e3,
@@ -3211,8 +3212,13 @@ var CFG3 = {
   STALE_SCAN_MS: 500,
   BATTLE_SCREEN_MAX_AGE: 200,
   ERROR_COOLDOWN_MS: 2e3,
-  DEFAULT_PROJ_SPEED: 3e3
+  DEFAULT_PROJ_SPEED: 3e3,
+
+  // --- nové ---
+  CENTER_REPLAN_MS: 1000,       // jak často přeplánovat cestu do středu
+  CENTER_REACH_SQ: 400 * 400,  // "jsme v centru" threshold (px²)
 };
+
 var _wrapperFn2 = null;
 var _errorUntil2 = 0;
 var _lastFireMs2 = 0;
@@ -3221,17 +3227,29 @@ var _path = null;
 var _pathIdx = 0;
 var _targetGid = null;
 var _targetHist = null;
+
+// stav "jdeme do středu"
+var _centerPath = null;
+var _centerPathIdx = 0;
+var _lastCenterPlanMs = 0;
+var _goingToCenter = false;
+
 function _resetPlan() {
   _path = null;
   _pathIdx = 0;
   _targetGid = null;
   _targetHist = null;
+  _centerPath = null;
+  _centerPathIdx = 0;
+  _goingToCenter = false;
 }
+
 function _distSq(ax, ay, bx, by) {
   const dx = ax - bx;
   const dy = ay - by;
   return dx * dx + dy * dy;
 }
+
 function _estimateVel(hist) {
   if (!hist || hist.length < 2) return { vx: 0, vy: 0 };
   const a = hist[hist.length - 2];
@@ -3240,6 +3258,7 @@ function _estimateVel(hist) {
   if (dt <= 0.01) return { vx: 0, vy: 0 };
   return { vx: (b.x - a.x) / dt, vy: (b.y - a.y) / dt };
 }
+
 function _updateTargetHist(enemy, now) {
   if (_targetGid !== enemy.gid) {
     _targetGid = enemy.gid;
@@ -3255,6 +3274,7 @@ function _updateTargetHist(enemy, now) {
     hist[hist.length - 1].t = now;
   }
 }
+
 function _pickAttackTile(enemy, attackRange, wall, danger, w, h, myTx, myTy) {
   const eTx = enemy.x / TILE | 0;
   const eTy = enemy.y / TILE | 0;
@@ -3284,6 +3304,7 @@ function _pickAttackTile(enemy, attackRange, wall, danger, w, h, myTx, myTy) {
   }
   return best;
 }
+
 function _pickTarget(myX, myY, enemies, wall, danger, w, h, attackRange) {
   const myTile = worldToTile(myX, myY);
   let best = null;
@@ -3297,6 +3318,150 @@ function _pickTarget(myX, myY, enemies, wall, danger, w, h, attackRange) {
   }
   return best;
 }
+
+// ---------- navigace do středu mapy ----------
+
+function _planCenterPath(myX, myY, wall, danger, w, h) {
+  const cx = (w / 2 | 0);
+  const cy = (h / 2 | 0);
+  const myTile = worldToTile(myX, myY);
+
+  // pokud jsme v dosahu středu, nepotřebujeme path
+  const cWx = cx * TILE + TILE_CENTER;
+  const cWy = cy * TILE + TILE_CENTER;
+  if (_distSq(myX, myY, cWx, cWy) <= CFG3.CENTER_REACH_SQ) return null;
+
+  // zkus najít průchodný tile v okolí středu (poloměr 5 tiles)
+  for (let r = 0; r <= 5; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // jen obvod
+        const tx = cx + dx;
+        const ty = cy + dy;
+        if (tx < 0 || ty < 0 || tx >= w || ty >= h) continue;
+        if (wall[ty * w + tx] & 128) continue;
+        const path = findPath(w, h, wall, danger, myTile.tx, myTile.ty, tx, ty, 1200);
+        if (path && path.length >= 2) return path;
+      }
+    }
+  }
+  return null;
+}
+
+function _getMoveTargetCenter(myX, myY) {
+  if (!_centerPath || _centerPathIdx >= _centerPath.length) return null;
+  while (_centerPathIdx < _centerPath.length) {
+    const node = _centerPath[_centerPathIdx];
+    const c = tileCenter(node.tx, node.ty);
+    const dx = c.x - myX;
+    const dy = c.y - myY;
+    if (dx * dx + dy * dy <= CFG3.WAYPOINT_REACH * CFG3.WAYPOINT_REACH) {
+      _centerPathIdx++;
+      continue;
+    }
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return {
+      x: Math.round(myX + dx / len * CFG3.MOVE_OFFSET),
+      y: Math.round(myY + dy / len * CFG3.MOVE_OFFSET)
+    };
+  }
+  return null;
+}
+
+// ---------- chytrý útok (jako aimbot) ----------
+
+/**
+ * Vypočítá predikovanou pozici cíle s lead shooting.
+ * Používá historii pohybu (estimateTargetVelocity z aimbot.js) i
+ * jednoduché _estimateVel jako fallback.
+ */
+function _computeSmartFirePos(enemy, myX, myY) {
+  const projSpeed = resolveProjSpeed ? resolveProjSpeed() : CFG3.DEFAULT_PROJ_SPEED;
+
+  // zkus využít aimbot target data pokud jsou dostupná
+  let vel = { vx: 0, vy: 0 };
+  if (typeof targets !== 'undefined' && targets.has(enemy.gid)) {
+    const t = targets.get(enemy.gid);
+    if (t._velCached) {
+      vel = t._velCached;
+    } else {
+      vel = estimateTargetVelocity(t.histX.d, t.histY.d, t.histT.d);
+    }
+  } else {
+    // fallback: jednoduchý odhad z naší lokální histor
+    vel = _estimateVel(_targetHist);
+  }
+
+  // scale velocity jako v aimbot (juking / unconfident)
+  let scale = 1;
+  if (vel.directionChanging) scale = 0.35;
+  else if (vel.confident === false) scale = 0.45;
+
+  const targetVel = scale === 1 ? vel : {
+    vx: vel.vx * scale,
+    vy: vel.vy * scale,
+    speed: (vel.speed || 0) * scale,
+    confident: vel.confident,
+    directionChanging: vel.directionChanging
+  };
+
+  const intercept = solveIntercept(myX, myY, enemy.x, enemy.y, targetVel, projSpeed);
+  if (!isFinite(intercept.x) || !isFinite(intercept.y)) {
+    return { x: enemy.x, y: enemy.y };
+  }
+  return { x: Math.round(intercept.x), y: Math.round(intercept.y) };
+}
+
+// ---------- fire ----------
+
+function _tryFire(now, myX, myY, attackRange) {
+  const bs = getSharedBattleScreen();
+  if (!bs || now - getSharedBattleScreenTs() > CFG3.BATTLE_SCREEN_MAX_AGE) return;
+  if (now - _lastFireMs2 < CFG3.FIRE_INTERVAL_MS) return;
+  const own = scanData.ownCharacter;
+  if (!own || own.isNull()) return;
+
+  const rangeSq = attackRange * attackRange;
+  let best = null;
+  let bestDist = 1e18;
+  const enemies = scanData.enemies || [];
+
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    // preferuj aktuální target, ale střílej na kohokoliv v dosahu
+    const d2 = _distSq(myX, myY, e.x, e.y);
+    if (d2 > rangeSq || d2 >= bestDist) continue;
+    if (!isLauncher(scanData.myBrawlerId, scanData.myBrawlerName) && !losCheck(myX, myY, e.x, e.y, 64)) continue;
+    bestDist = d2;
+    best = e;
+  }
+
+  if (!best) return;
+
+  // chytrý aim (lead shooting) — jako aimbot
+  const firePos = _computeSmartFirePos(best, myX, myY);
+
+  // LOS check na predikovanou pozici (pro non-launcher)
+  if (!isLauncher(scanData.myBrawlerId, scanData.myBrawlerName)) {
+    if (!losCheck(myX, myY, firePos.x, firePos.y, 64)) {
+      // fallback na přímou pozici
+      if (!losCheck(myX, myY, best.x, best.y, 64)) return;
+      firePos.x = best.x;
+      firePos.y = best.y;
+    }
+  }
+
+  bs.add(offsets.BattleScreen_manualFireX).writeS32(firePos.x);
+  bs.add(offsets.BattleScreen_manualFireY).writeS32(firePos.y);
+  bs.add(offsets.BattleScreen_autoFireX).writeS32(firePos.x);
+  bs.add(offsets.BattleScreen_autoFireY).writeS32(firePos.y);
+  bs.add(offsets.BattleScreen_autoshootPredOff).writeS32(0);
+  _wrapperFn2(bs, own);
+  _lastFireMs2 = now;
+}
+
+// ---------- replan ----------
+
 function _replan(now, myX, myY, attackRange) {
   const wall = getWallCache();
   const w = getWallCacheW();
@@ -3305,13 +3470,16 @@ function _replan(now, myX, myY, attackRange) {
     _resetPlan();
     return;
   }
+
   const danger = buildDangerMap(w, h, scanData.areaEffects || [], scanData.projectiles || [], {
     areaCostScale: CFG3.AREA_COST_SCALE,
     projCost: CFG3.PROJ_COST,
     projLookaheadS: CFG3.PROJ_LOOKAHEAD_S
   });
+
   const enemies = scanData.enemies || [];
   let chosen = null;
+
   if (_targetGid) {
     for (let i = 0; i < enemies.length; i++) {
       if (enemies[i].gid === _targetGid) {
@@ -3321,16 +3489,38 @@ function _replan(now, myX, myY, attackRange) {
       }
     }
   }
+
   if (!chosen) chosen = _pickTarget(myX, myY, enemies, wall, danger, w, h, attackRange);
+
   if (!chosen) {
-    _resetPlan();
+    // --- ŽÁDNÝ CÍLE: jdi do středu mapy ---
+    _path = null;
+    _pathIdx = 0;
+    _targetGid = null;
+    _targetHist = null;
+    _goingToCenter = true;
+
+    if (now - _lastCenterPlanMs >= CFG3.CENTER_REPLAN_MS) {
+      _centerPath = _planCenterPath(myX, myY, wall, danger, w, h);
+      _centerPathIdx = 1;
+      _lastCenterPlanMs = now;
+    }
+    _lastPlanMs = now;
     return;
   }
+
+  // našli cíl — zrušíme center navigaci
+  _goingToCenter = false;
+  _centerPath = null;
+
   _updateTargetHist(chosen.enemy, now);
   _path = chosen.path;
   _pathIdx = 1;
   _lastPlanMs = now;
 }
+
+// ---------- movement provider ----------
+
 function _getMoveTarget(myX, myY) {
   if (!_path || _pathIdx >= _path.length) return null;
   while (_pathIdx < _path.length) {
@@ -3350,42 +3540,7 @@ function _getMoveTarget(myX, myY) {
   }
   return null;
 }
-function _tryFire(now, myX, myY, attackRange) {
-  const bs = getSharedBattleScreen();
-  if (!bs || now - getSharedBattleScreenTs() > CFG3.BATTLE_SCREEN_MAX_AGE) return;
-  if (now - _lastFireMs2 < CFG3.FIRE_INTERVAL_MS) return;
-  const own = scanData.ownCharacter;
-  if (!own || own.isNull()) return;
-  const rangeSq = attackRange * attackRange;
-  let best = null;
-  let bestDist = 1e18;
-  const enemies = scanData.enemies || [];
-  for (let i = 0; i < enemies.length; i++) {
-    const e = enemies[i];
-    if (_targetGid && e.gid !== _targetGid) continue;
-    const d2 = _distSq(myX, myY, e.x, e.y);
-    if (d2 > rangeSq || d2 >= bestDist) continue;
-    if (!isLauncher(scanData.myBrawlerId, scanData.myBrawlerName) && !losCheck(myX, myY, e.x, e.y, 64)) continue;
-    bestDist = d2;
-    best = e;
-  }
-  if (!best) return;
-  let fireX = best.x;
-  let fireY = best.y;
-  const vel = _estimateVel(_targetHist);
-  const lead = solveIntercept(myX, myY, best.x, best.y, vel, CFG3.DEFAULT_PROJ_SPEED);
-  if (isFinite(lead.x) && isFinite(lead.y)) {
-    fireX = Math.round(lead.x);
-    fireY = Math.round(lead.y);
-  }
-  bs.add(offsets.BattleScreen_manualFireX).writeS32(fireX);
-  bs.add(offsets.BattleScreen_manualFireY).writeS32(fireY);
-  bs.add(offsets.BattleScreen_autoFireX).writeS32(fireX);
-  bs.add(offsets.BattleScreen_autoFireY).writeS32(fireY);
-  bs.add(offsets.BattleScreen_autoshootPredOff).writeS32(0);
-  _wrapperFn2(bs, own);
-  _lastFireMs2 = now;
-}
+
 function _movementProvider() {
   if (!state.pathbot || scanData.lastUpdate === 0) return null;
   const myX = scanData.myX;
@@ -3394,43 +3549,63 @@ function _movementProvider() {
   if (attackRange <= 0) return null;
   const now = Date.now();
   if (now - scanData.lastUpdate > CFG3.STALE_SCAN_MS) return null;
+
   if (now - _lastPlanMs >= CFG3.REPLAN_MS) _replan(now, myX, myY, attackRange);
+
+  // pokud máme cíl v dosahu s LOS → stůj a střílej (replan se postará o fire)
   const rangeSq = attackRange * attackRange * CFG3.ATTACK_RANGE_FACTOR * CFG3.ATTACK_RANGE_FACTOR;
   if (_targetGid) {
-    for (let i = 0; i < (scanData.enemies || []).length; i++) {
-      const e = scanData.enemies[i];
+    const enemies = scanData.enemies || [];
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
       if (e.gid !== _targetGid) continue;
       if (_distSq(myX, myY, e.x, e.y) <= rangeSq) {
         const los = isLauncher(scanData.myBrawlerId, scanData.myBrawlerName) || losCheck(myX, myY, e.x, e.y, 64);
-        if (los) {
-          _tryFire(now, myX, myY, attackRange);
-          return null;
-        }
+        if (los) return null; // stůj, _tryFire se postará
       }
       break;
     }
   }
-  return _getMoveTarget(myX, myY);
+
+  // pohyb po cestě k cíli
+  const wpMove = _getMoveTarget(myX, myY);
+  if (wpMove) return wpMove;
+
+  // pohyb do středu mapy
+  if (_goingToCenter) {
+    return _getMoveTargetCenter(myX, myY);
+  }
+
+  return null;
 }
+
+// ---------- update ----------
+
 function updatePathbot(now) {
   if (!state.pathbot || scanData.lastUpdate === 0) return;
   if (now === void 0) now = Date.now();
   if (now < _errorUntil2) return;
   if (now - scanData.lastUpdate > CFG3.STALE_SCAN_MS) return;
+
   try {
     const attackRange = resolveBrawlerRange(scanData.myBrawlerName, scanData.myBrawlerId);
     if (attackRange <= 0) return;
+    // střílej pokud je cíl v dosahu — i když se pohybujeme k němu
     _tryFire(now, scanData.myX, scanData.myY, attackRange);
   } catch (_) {
     _errorUntil2 = Date.now() + CFG3.ERROR_COOLDOWN_MS;
   }
 }
+
 function resetPathbot() {
   _resetPlan();
   _lastPlanMs = 0;
   _lastFireMs2 = 0;
   _errorUntil2 = 0;
+  _lastCenterPlanMs = 0;
+  _goingToCenter = false;
 }
+
 function setupPathbot(base) {
   _wrapperFn2 = new NativeFunction(base.add(offsets.BattleScreen_fireWrapperFn), "int", ["pointer", "pointer"]);
   registerMovementProvider(_movementProvider, 50);

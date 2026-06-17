@@ -1403,30 +1403,7 @@ function resetESP() {
 }
 
 // agent/index.js
-initLibs();
 var base2 = getBase();
-initFunctions(base2);
-initCSV(base2);
-initScanner(base2);
-setupESP(base2);
-var lastBM = null;
-Interceptor.attach(base2.add(offsets.LogicBattleModeClient_update), {
-  onEnter(args) {
-    try {
-      const bm = args[0];
-      if (!bm || bm.isNull()) return;
-      if (!lastBM || !lastBM.equals(bm)) {
-        lastBM = bm;
-        resetESP();
-        resetScannerCache();
-      }
-      const now = Date.now();
-      updateScanner(bm, now);
-      if (state.esp) buildDrawList();
-    } catch (_) {
-    }
-  }
-});
 function main() {
   initLibs();
   let base3 = getBase();

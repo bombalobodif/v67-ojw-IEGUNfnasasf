@@ -418,7 +418,8 @@ const natives = {
 };
 
 let state = {
-    autojoin: false
+    autojoin: false,
+    replace: false
 }
 
 const getinstance = natives.Gui_getInstance;
@@ -458,6 +459,10 @@ function startGameTest() {
             var type7 = args[7];
             var type8 = args[8];
             log("brawler id: " + type1 + " " + type2 + " " + type4 + " " + type5 + " " + type6 + " " + type7 + " " + type8);
+            
+            if(state.replace) {
+                args[8] = 0x0;
+            }
         }
     });
 }
@@ -511,9 +516,9 @@ function main() {
                 off: () => { state.autojoin = false; }
             });
 
-            menu.addButton("join", "Rejoin", {
-                on: () => { 
-                }
+            menu.addButton("replace", "replace", {
+                on: () => { state.replace = true; },
+                off: () => { state.replace = false; }
             });
 
             menu.addLogButton();

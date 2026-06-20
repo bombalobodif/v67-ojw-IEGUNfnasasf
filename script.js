@@ -488,6 +488,10 @@ function main() {
                 off: () => { state.autojoin = false; }
             });
 
+            menu.addButton("join", "Rejoin", {
+                on: () => { natives.homePage_startGame(startGameArgs[0],startGameArgs[1],startGameArgs[2],startGameArgs[3],startGameArgs[4],startGameArgs[5],startGameArgs[6],startGameArgs[7],startGameArgs[8]); }
+            });
+
             menu.addLogButton();
 
             menu.start();

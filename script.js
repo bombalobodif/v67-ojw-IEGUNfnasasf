@@ -473,7 +473,7 @@ function autoRejoin() {
                     } catch (e) {
                         log("Error: " + e);
                     }
-                }, 3000);
+                }, 5000);
                 
             }
             gameOver = true;

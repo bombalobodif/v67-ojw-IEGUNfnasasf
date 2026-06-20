@@ -467,18 +467,23 @@ function startGameTest() {
 
 }
 
-let startGameArgs = []
+let startGameArgs = [];
+let gameOver = true;
 
 function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.homePage_startGame), {
         onEnter: function(args) {
+            gameOver = false;
             startGameArgs = args;
         }
     });
 
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter: function(args) {
-            log("game over");
+            if(state.autojoin) {
+                natives.homePage_startGame(startGameArgs[0],startGameArgs[1],startGameArgs[2],startGameArgs[3],startGameArgs[4],startGameArgs[5],startGameArgs[6],startGameArgs[7],startGameArgs[8]);
+            }
+            gameOver = true;
         }
     });
 }

@@ -448,7 +448,10 @@ function startGameTest() {
     Interceptor.attach(base.add(0x8FF70C), {
         onEnter: function(args) {
             var eventdata = args[0];
-            //let characterData = eventdata.add(0x400);
+            var characterDatas = eventdata.add(0x400);
+            var data = characterDatas.add(1*8).readPointer();
+            var id = data.add(0x18).readInt();
+            log("test id: " + id);
             
             
             var type1 = args[1];

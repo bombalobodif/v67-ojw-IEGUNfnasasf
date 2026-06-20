@@ -400,7 +400,8 @@ const OFFSETS = {
     stringString: 0xDCF7E0,
     updateAutoshoot: 0x8076A0,
     homePage_startGame: 0x8FF70C,
-    setGameOverResult: 0x9559E0
+    setGameOverResult: 0x9559E0,
+    normalGameStart: 0x907A24
 };
 
 const natives = {
@@ -412,7 +413,8 @@ const natives = {
     StringCtor: new NativeFunction(base.add(OFFSETS.stringCtor), "pointer", ["pointer", "pointer"]),
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
     LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
-    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),"bool",["pointer","pointer","pointer","int","pointer","pointer","uint8","pointer","uint8",])
+    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
+    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart,'void',['pointer']))
 };
 
 let state = {
@@ -473,18 +475,22 @@ let gameOver = true;
 function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.homePage_startGame), {
         onEnter: function(args) {
-            gameOver = false;
+            var type = args[3];
+
+            if(type == 0x1) {
+                gameOver = false;
+            }
+            
             startGameArgs = args;
         }
     });
 
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter: function(args) {
-            if(true) {
+            if(state.autojoin) {
                 log("rejoining");
                 natives.homePage_startGame(startGameArgs[0],startGameArgs[1],startGameArgs[2],startGameArgs[3],startGameArgs[4],startGameArgs[5],startGameArgs[6],startGameArgs[7],startGameArgs[8]);
             }
-            log("game over");
             gameOver = true;
         }
     });
@@ -505,10 +511,10 @@ function main() {
 
             menu.addButton("auto_rejoin", "Auto Rejoin", {
                 on: () => {
-                    autojoin = true;
+                    state.autojoin = true;
                 },
                 off: () => {
-                    autojoin = false;
+                    state.autojoin = false;
                 }
             });
 

@@ -475,7 +475,7 @@ function autoRejoin() {
             
             var numberOfCharacters = args[0].add(0x40c).readInt()
             log("test number: " + numberOfCharacters);
-            numberOfCharacters.writeS32(0);
+            numberOfCharacters.writeS32(1);
         }
     });
 

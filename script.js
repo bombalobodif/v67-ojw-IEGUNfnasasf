@@ -484,6 +484,7 @@ function autoRejoin() {
                 log("rejoining");
                 natives.homePage_startGame(startGameArgs[0],startGameArgs[1],startGameArgs[2],startGameArgs[3],startGameArgs[4],startGameArgs[5],startGameArgs[6],startGameArgs[7],startGameArgs[8]);
             }
+            log("game over");
             gameOver = true;
         }
     });

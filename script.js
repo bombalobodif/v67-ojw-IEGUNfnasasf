@@ -454,7 +454,7 @@ function startGameTest() {
             var type1 = args[1];
             var type2 = args[2];
             var type4 = args[4];
-            var type5 = args[5].add(0x18);
+            var type5 = args[5].add(0x18).readInt();
             var type6 = args[6];
             var type7 = args[7];
             var type8 = args[8];

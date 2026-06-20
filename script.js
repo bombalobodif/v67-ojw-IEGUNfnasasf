@@ -456,7 +456,7 @@ function startGameTest() {
             var type6 = args[6];
             var type7 = args[7];
             var type8 = args[8];
-            log("brawler id: " + type1 + " " + type2 + " " + type4 + " " + type5 + " " + type6 + " " + type7 + " " + type8);
+            //log("brawler id: " + type1 + " " + type2 + " " + type4 + " " + type5 + " " + type6 + " " + type7 + " " + type8);
             
             if(state.replace) {
                 args[8] = 0x0;
@@ -472,6 +472,9 @@ function autoRejoin() {
             gameOver = false;
             log("args: " + args[0]);
             startGameArgs = args[0];
+            
+            var test = args[0].add(0x40c).readInt();
+            log("test number: " + test);
         }
     });
 

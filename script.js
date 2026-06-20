@@ -473,8 +473,9 @@ function autoRejoin() {
             log("args: " + args[0]);
             startGameArgs = args[0];
             
-            var test = args[0].add(0x40c).readInt();
-            log("test number: " + test);
+            var numberOfCharacters = args[0].add(0x40c).readInt()
+            var id = args[0].add(0x400).add(numberOfCharacters * 8).add(0x18).readInt();
+            log("test number: " + id);
         }
     });
 

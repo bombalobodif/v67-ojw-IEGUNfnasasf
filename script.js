@@ -439,18 +439,22 @@ function showFloater(text) {
     floater(getinstance(), getScPtr(text), 0, -1);
 }
 
+
+let startGameArgs = null;
+let gameOver = true;
+
 function startGameTest() {
     Interceptor.attach(base.add(0x8FF70C), {
         onEnter: function(args) {
             var eventdata = args[0];
-            var type = args[3];
-            log("all 2: " + args[4] + " 3: " + args[5]);
+            //let characterData = eventdata.add(0x400);
+            
+            
+            var type = args[4].add(0x18);
+            log("brawler id: " + type);
         }
     });
 }
-
-let startGameArgs = null;
-let gameOver = true;
 
 function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.normalGameStart), {
@@ -475,7 +479,7 @@ function autoRejoin() {
                         log("Error: " + e);
                     }
                 }, 5000);
-                
+
             }
             gameOver = true;
             log("game over");

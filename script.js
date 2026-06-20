@@ -444,7 +444,7 @@ function startGameTest() {
         onEnter: function(args) {
             var eventdata = args[0];
             var type = args[3];
-            log("all args: " + args);
+            log("all 2: " + args[2] + " 3: " + args[4]);
         }
     });
 }

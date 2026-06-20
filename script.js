@@ -457,7 +457,7 @@ function autoRejoin() {
             log("new game");
             gameOver = false;
             log("args: " + args[0]);
-            startGameArgs = ptr(args[0]);
+            startGameArgs = args[0];
         }
     });
 

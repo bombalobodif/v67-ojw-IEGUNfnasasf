@@ -484,12 +484,8 @@ function main() {
             menu.setColors("#82da48", "#406e36");
 
             menu.addButton("auto_rejoin", "Auto Rejoin", {
-                on: () => {
-                    state.autojoin = true;
-                },
-                off: () => {
-                    state.autojoin = false;
-                }
+                on: () => { state.autojoin = true; },
+                off: () => { state.autojoin = false; }
             });
 
             menu.addLogButton();

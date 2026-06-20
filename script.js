@@ -434,8 +434,14 @@ function startGameTest() {
     Interceptor.attach(base.add(0x8FF70C), {
         onEnter: function(args) {
             var type = args[3];
-            var state = args[4];
-            log("battle type: " + type + " state: " + state);
+            log("battle type: " + type);
+        }
+    });
+
+    Interceptor.attach(base.add(0xB751A4), {
+        onEnter: function(args) {
+            var type = args[4];
+            log("play type: " + type);
         }
     });
 

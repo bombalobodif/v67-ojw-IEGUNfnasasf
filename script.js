@@ -414,7 +414,7 @@ const natives = {
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
     LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
     homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
-    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart,'void',['pointer']))
+    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer'])
 };
 
 let state = {
@@ -480,7 +480,7 @@ function autoRejoin() {
             if(type == 0x1) {
                 gameOver = false;
             }
-            
+
             startGameArgs = args;
         }
     });

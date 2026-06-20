@@ -449,7 +449,7 @@ function startGameTest() {
         onEnter: function(args) {
             var eventdata = args[0];
             
-            var type1 = args[1].add(0x18);
+            var type1 = args[1].add(0x18).readInt();
             var type2 = args[2];
             var type4 = args[4];
             var type5 = args[5];

@@ -448,18 +448,13 @@ function startGameTest() {
     Interceptor.attach(base.add(0x8FF70C), {
         onEnter: function(args) {
             var eventdata = args[0];
-            var characterDatas = eventdata.add(0x400);
-            var data = characterDatas.add(1*8).readPointer();
-            var id = data.add(0x18).readInt();
-            log("test id: " + id);
             
-            
-            var type1 = args[1];
+            var type1 = args[1].add(0x18).readInt();
             var type2 = args[2];
-            var type4 = args[4];
+            var type4 = args[4].add(0x18).readInt();
             var type5 = args[5].add(0x18).readInt();
             var type6 = args[6];
-            var type7 = args[7];
+            var type7 = args[7].add(0x18).readInt();
             var type8 = args[8];
             log("brawler id: " + type1 + " " + type2 + " " + type4 + " " + type5 + " " + type6 + " " + type7 + " " + type8);
             

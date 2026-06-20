@@ -445,6 +445,13 @@ function startGameTest() {
         }
     });
 
+    Interceptor.attach(base.add(0x5C11D4), {
+        onEnter: function(args) {
+            var type = args[1];
+            log("spectate: " + type);
+        }
+    });
+
 }
 
 function main() {

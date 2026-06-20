@@ -463,6 +463,11 @@ function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter: function(args) {
             if(state.autojoin) {
+                try {
+                    natives.normalGameStart(startGameArgs[0]);
+                } catch (e) {
+                    log("Error: " + e);
+                }
                 log("rejoining");
                 
             }
@@ -492,8 +497,6 @@ function main() {
 
             menu.addButton("join", "Rejoin", {
                 on: () => { 
-                    natives.normalGameStart(startGameArgs[0]); 
-                    log("executed join");
                 }
             });
 

@@ -511,10 +511,10 @@ function main() {
 
             menu.addButton("auto_rejoin", "Auto Rejoin", {
                 on: () => {
-                    state.autojoin = true;
+                    //state.autojoin = true;
                 },
                 off: () => {
-                    state.autojoin = false;
+                    //state.autojoin = false;
                 }
             });
 

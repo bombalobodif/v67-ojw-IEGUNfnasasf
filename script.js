@@ -398,7 +398,9 @@ const OFFSETS = {
     stringCtor: 0xDCF8F0,
     stringTableGetString: 0x96D7B0,
     stringString: 0xDCF7E0,
-    updateAutoshoot: 0x8076A0
+    updateAutoshoot: 0x8076A0,
+    homePage_startGame: 0x8FF70C,
+    setGameOverResult: 0x9559E0
 };
 
 const natives = {
@@ -409,8 +411,13 @@ const natives = {
     Gui_getInstance: new NativeFunction(base.add(OFFSETS.guiGetInstance), "pointer", []),
     StringCtor: new NativeFunction(base.add(OFFSETS.stringCtor), "pointer", ["pointer", "pointer"]),
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
-    LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"])
+    LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
+    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),"bool",["pointer","pointer","pointer","int","pointer","pointer","uint8","pointer","uint8",])
 };
+
+let state = {
+    autojoin: false
+}
 
 const getinstance = natives.Gui_getInstance;
 const stringctor = natives.StringCtor;
@@ -454,14 +461,31 @@ function startGameTest() {
 
     Interceptor.attach(base.add(0xAB4430), {
         onEnter: function(args) {
-            args[0] = 0;
+            //args[0] = 0;
         }
     });
 
 }
 
+let startGameArgs = []
+
+function autoRejoin() {
+    Interceptor.attach(base.add(OFFSETS.homePage_startGame), {
+        onEnter: function(args) {
+            startGameArgs = args;
+        }
+    });
+
+    Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
+        onEnter: function(args) {
+            log("game over");
+        }
+    });
+}
+
 function main() {
     startGameTest();
+    autoRejoin();
 
     Java.perform(() => {
         Java.scheduleOnMainThread(() => {
@@ -471,6 +495,15 @@ function main() {
             globalMenu = menu;
 
             menu.setColors("#82da48", "#406e36");
+
+            menu.addButton("auto_rejoin", "Auto Rejoin", {
+                on: () => {
+                    autojoin = true;
+                },
+                off: () => {
+                    autojoin = false;
+                }
+            });
 
             menu.addLogButton();
 

@@ -452,6 +452,12 @@ function startGameTest() {
         }
     });
 
+    Interceptor.attach(base.add(0xAB4430), {
+        onEnter: function(args) {
+            args[0] = 0;
+        }
+    });
+
 }
 
 function main() {

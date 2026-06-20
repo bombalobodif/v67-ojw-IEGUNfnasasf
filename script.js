@@ -448,7 +448,7 @@ function startGameTest() {
     });
 }
 
-let startGameArgs = ptr(0);
+let startGameArgs = null;
 let gameOver = true;
 
 function autoRejoin() {
@@ -465,7 +465,8 @@ function autoRejoin() {
         onEnter: function(args) {
             if(state.autojoin) {
                 try {
-                    natives.normalGameStart(startGameArgs[0]);
+                    log("saved ptr: " + startGameArgs);
+                    natives.normalGameStart(startGameArgs);
                 } catch (e) {
                     log("Error: " + e);
                 }

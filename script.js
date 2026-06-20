@@ -456,6 +456,7 @@ function autoRejoin() {
         onEnter: function(args) {
             log("new game");
             gameOver = false;
+            log("args: " + args[0]);
             startGameArgs = ptr(args[0]);
         }
     });

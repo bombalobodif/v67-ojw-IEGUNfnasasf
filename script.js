@@ -464,13 +464,16 @@ function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter: function(args) {
             if(state.autojoin) {
-                try {
-                    log("saved ptr: " + startGameArgs);
-                    natives.normalGameStart(startGameArgs);
-                } catch (e) {
-                    log("Error: " + e);
-                }
-                log("rejoining");
+                log("rejoining in 3 seconds...");
+
+                setTimeout(() => {
+                    try {
+                        log("saved ptr: " + startGameArgs);
+                        natives.normalGameStart(startGameArgs);
+                    } catch (e) {
+                        log("Error: " + e);
+                    }
+                }, 3000);
                 
             }
             gameOver = true;

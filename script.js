@@ -413,8 +413,7 @@ const natives = {
     StringCtor: new NativeFunction(base.add(OFFSETS.stringCtor), "pointer", ["pointer", "pointer"]),
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
     LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
-    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
-    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer'])
+    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8'])
 };
 
 let state = {
@@ -446,27 +445,6 @@ function startGameTest() {
             log("battle type: " + type);
         }
     });
-
-    Interceptor.attach(base.add(0xB751A4), {
-        onEnter: function(args) {
-            var type = args[4];
-            log("play type: " + type);
-        }
-    });
-
-    Interceptor.attach(base.add(0x5C11D4), {
-        onEnter: function(args) {
-            var type = args[1];
-            log("spectate: " + type);
-        }
-    });
-
-    Interceptor.attach(base.add(0xAB4430), {
-        onEnter: function(args) {
-            //args[0] = 0;
-        }
-    });
-
 }
 
 let startGameArgs = [];
@@ -476,11 +454,7 @@ function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.homePage_startGame), {
         onEnter: function(args) {
             var type = args[3];
-
-            if(type == 0x1) {
-                gameOver = false;
-            }
-
+            gameOver = false;
             startGameArgs = args;
         }
     });

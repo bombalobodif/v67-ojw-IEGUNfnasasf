@@ -450,8 +450,14 @@ function startGameTest() {
             //let characterData = eventdata.add(0x400);
             
             
-            var type = args[1].add(0x18);
-            log("brawler id: " + type);
+            var type1 = args[1];
+            var type2 = args[2];
+            var type4 = args[4];
+            var type5 = args[5];
+            var type6 = args[6];
+            var type7 = args[7];
+            var type8 = args[8];
+            log("brawler id: " + type1 + " " + type2 + " " + type4 + " " + type5 + " " + type6 + " " + type7 + " " + type8);
         }
     });
 }

@@ -448,7 +448,7 @@ function startGameTest() {
     });
 }
 
-let startGameArgs = [];
+let startGameArgs = ptr(0);
 let gameOver = true;
 
 function autoRejoin() {
@@ -456,7 +456,7 @@ function autoRejoin() {
         onEnter: function(args) {
             log("new game");
             gameOver = false;
-            startGameArgs = Array.from(args);
+            startGameArgs = ptr(args[0]);
         }
     });
 

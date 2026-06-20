@@ -413,7 +413,8 @@ const natives = {
     StringCtor: new NativeFunction(base.add(OFFSETS.stringCtor), "pointer", ["pointer", "pointer"]),
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
     LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
-    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8'])
+    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
+    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer'])
 };
 
 let state = {
@@ -451,11 +452,11 @@ let startGameArgs = [];
 let gameOver = true;
 
 function autoRejoin() {
-    Interceptor.attach(base.add(OFFSETS.homePage_startGame), {
+    Interceptor.attach(base.add(OFFSETS.normalGameStart), {
         onEnter: function(args) {
-            var type = args[3];
+            log("new game");
             gameOver = false;
-            startGameArgs = args;
+            startGameArgs = Array.from(args);
         }
     });
 
@@ -463,9 +464,10 @@ function autoRejoin() {
         onEnter: function(args) {
             if(state.autojoin) {
                 log("rejoining");
-                natives.homePage_startGame(startGameArgs[0],startGameArgs[1],startGameArgs[2],startGameArgs[3],startGameArgs[4],startGameArgs[5],startGameArgs[6],startGameArgs[7],startGameArgs[8]);
+                
             }
             gameOver = true;
+            log("game over");
         }
     });
 }
@@ -489,7 +491,10 @@ function main() {
             });
 
             menu.addButton("join", "Rejoin", {
-                on: () => { natives.homePage_startGame(startGameArgs[0],startGameArgs[1],startGameArgs[2],startGameArgs[3],startGameArgs[4],startGameArgs[5],startGameArgs[6],startGameArgs[7],startGameArgs[8]); }
+                on: () => { 
+                    natives.normalGameStart(startGameArgs[0]); 
+                    log("executed join");
+                }
             });
 
             menu.addLogButton();

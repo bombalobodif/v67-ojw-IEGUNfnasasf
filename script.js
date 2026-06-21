@@ -473,9 +473,11 @@ function autoRejoin() {
             log("args: " + args[0]);
             startGameArgs = args[0];
             
-            var numberOfCharacters = args[0].add(0x40c).readInt()
-            log("test number: " + numberOfCharacters);
+            var numberOfCharacters = args[0].add(0x40c);
             numberOfCharacters.writeS32(1);
+            
+            var check = args[0].add(0x3f8).readInt();
+            log("check: ");
         }
     });
 

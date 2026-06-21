@@ -456,22 +456,24 @@ let gameOver = true;
 function startGameTest() {
     Interceptor.attach(base.add(0x8FF70C), {
         onEnter: function(args) {
-            var eventdata = args[0];
-            
-            var type1 = args[1];
-            var type2 = args[2];
-            var type4 = args[4].add(0x18).readInt();
-            var type5 = args[5];
-            var type6 = args[6];
-            var type7 = args[7];
-            var type8 = args[8];
-            //log("brawler id: " + type1 + " " + type2 + " " + type4 + " " + type5 + " " + type6 + " " + type7 + " " + type8);
-            
-            if(state.replace) {
-                args[8] = 0x0;
-            }
         }
     });
+}
+
+function exitBattle() {
+    const size = 0x901;
+    const fakeObject = Memory.alloc(size);
+    fakeObject.writeByteArray(new Array(size).fill(0));
+
+    natives.mapEditorScreen_sendGoHomeMessage(fakeObject);
+}
+
+function joinBattle() {
+    var homeMode = natives.homeModeGetInstance();
+    var homeScreen = natives.getHomeScreen(homeMode);
+    var homePage = natives.getHomePage(homeScreen);
+
+    natives.normalGameStart(homePage);
 }
 
 function autoRejoin() {
@@ -479,31 +481,15 @@ function autoRejoin() {
         onEnter: function(args) {
             log("new game");
             gameOver = false;
-            log("args: " + args[0]);
-            startGameArgs = args[0];
-            
-            var numberOfCharacters = args[0].add(0x40c);
-            numberOfCharacters.writeS32(1);
-            
-            var check = args[0].add(0x3f8).readInt();
-            log("check: " + check);
         }
     });
 
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter: function(args) {
             if(state.autojoin) {
-                log("rejoining in 3 seconds...");
-
-                setTimeout(() => {
-                    try {
-                        log("saved ptr: " + startGameArgs);
-                        natives.normalGameStart(startGameArgs);
-                    } catch (e) {
-                        log("Error: " + e);
-                    }
-                }, 5000);
-
+                exitBattle();
+                joinBattle();
+                log("joining new battle");
             }
             gameOver = true;
             log("game over");
@@ -565,15 +551,8 @@ function main() {
 
             menu.addButton("test", "test", {
                 on: () => {
-                    //var gui = natives.Gui_getInstance();
-                    //natives.guiCloseAllPopups(gui);
-                    const size = 0x901;
-                    const fakeObject = Memory.alloc(size);
-
-                    fakeObject.writeByteArray(new Array(size).fill(0));
-
-                    natives.mapEditorScreen_sendGoHomeMessage(fakeObject);
-                    log("closed popups");
+                    exitBattle();
+                    log("exited");
                 }
             });
 

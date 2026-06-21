@@ -530,9 +530,29 @@ function main() {
                     var homeMode = natives.homeModeGetInstance();
                     var homeScreen = natives.getHomeScreen(homeMode);
                     var homePage = natives.getHomePage(homeScreen);
-                    var eventdata = homePage.add(0x3f0);
-                    log("test1: " + eventdata);
-                    log("test2: " + startGameArgs);
+                    var characterCount  = homePage.add(0x40c).readS32();
+                    var teammateCount = characterCount - 1;
+                    var characters = homePage.add(0x400).readPointer();
+                    var ownCharacter = characters.readPointer();
+                    var eventdata = homePage.add(0x3f0).readPointer();
+
+                    var teamArray = ptr(0);
+                    if (teammateCount > 0) {
+                        var dataBuf = Memory.alloc(0x8 * teammateCount);
+
+                        for (var i = 0; i < teammateCount; i++) {
+                            var p = characters.add((i + 1) * 0x8).readPointer();
+                            dataBuf.add(i * 0x8).writePointer(p);
+                        }
+
+                        var header = Memory.alloc(0x10);
+                        header.writePointer(dataBuf);   
+                        header.add(0x08).writeS32(teammateCount);
+                        header.add(0x0c).writeS32(teammateCount);
+                        teamArray = header;
+                    }
+
+                    natives.homePage_startGame(homePage,eventdata,0,1,ownCharacter,teamArray,0,0,1);
                 }
             });
 

@@ -477,7 +477,7 @@ function autoRejoin() {
             numberOfCharacters.writeS32(1);
             
             var check = args[0].add(0x3f8).readInt();
-            log("check: ");
+            log("check: " + check);
         }
     });
 

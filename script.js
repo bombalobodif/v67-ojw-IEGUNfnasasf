@@ -836,7 +836,67 @@ class Menu {
 //  GAME LOGIC
 // ─────────────────────────────────────────────────────────────────────────────
 
-const state = { autojoin: false };
+const CharacterType = {
+    0:  "Hero",
+    1:  "Npc_Boss",
+    2:  "Minion_FollowOwner",
+    3:  "Minion_FindEnemies",
+    4:  "LootBox",
+    6:  "Pvp_Base",
+    7:  "Minion_Building_charges_ulti",
+    8:  "Minion_Dog",
+    0xC: "RoboWars",
+    0xD: "Train",
+    0xF: "Minion_Mirage",
+    0x10: "Npc_Boss_TownCrush",
+    0x11: "Carryable",
+    0x12: "Minion_Duplicate",
+    0x13: "Payload",
+    0x14: "Minion_Invasion",
+    0x15: "Minion_LastStand",
+    0x16: "Minion_Percenter",
+    0x17: "Minion_Twin",
+    0x18: "Minion_Critter",
+    0x19: "Minion_Orbiting",
+    0x1A: "Hero2",
+    0x1E: "Mega_Boss",
+    0x1F: "Minion_Shadow_Clone",
+};
+
+let targetX = 0;
+let targetY = 0;
+
+
+function handleObjects(objects, count, ownTeamId) {
+    const now = Date.now();
+    for (let i = 0; i < count; i++) {
+        const objPtr = objects.add(i * 8).readPointer();
+        const globalId = natives.LogicGameObjectClient_getGlobalID(objPtr);
+        const dataPtr = natives.LogicGameObjectClient_getData(objPtr);
+        if (!dataPtr || dataPtr.isNull()) continue;
+
+        const type = Math.floor(globalId / 1000000);
+        const index = globalId % 1000000;
+        
+        const teamId = objPtr.add(0xc
+        const maxHP = objPtr.add(0xac).readS32();
+        const currentHP = objPtr.add(0xa8).readS32();
+        const characterTypeId = dataPtr.add(0x23C).readS32();
+        const typeName = CharacterType[characterTypeId] ?? "Unknown";
+
+        if(type === 1) {
+            const x = natives.LogicGameObjectClient_getX(objPtr);
+            const y = natives.LogicGameObjectClient_getY(objPtr);
+            
+            //startWalk(x,y);
+        }
+    }   
+}
+
+const state = {
+    autojoin: false,
+    autofarm: false
+};
 let gameOver = true;
 
 function hookGameEvents() {
@@ -851,6 +911,47 @@ function hookGameEvents() {
             if (!state.autojoin) return;
             setTimeout(() => { log("exiting");   exitBattle(); },  6000);
             setTimeout(() => { log("rejoining"); joinBattle();  }, 20000);
+        }
+    });
+    
+    Interceptor.attach(base.add(OFFSETS.BattleScreen_getClosestTargetForAutoshoot), {
+        onLeave: function(retval) {
+            if (retval == 0x0) {
+                return;
+            }
+            
+            if(state.autofarm == false) return;
+            
+            const x = natives.LogicGameObjectClient_getX(retval);
+            const y = natives.LogicGameObjectClient_getY(retval);
+            if(x != targetX || y != targetY) {
+                targetX = x;
+                targetY = y;
+                stopWalk();
+                startWalk(x,y);
+            }
+        }
+    });
+    
+    Interceptor.attach(base.add(OFFSETS.LogicBattleModeClient_update), {
+        onEnter(args) {
+            const battleMode = args[0];
+            
+            const ownCharacter = natives.LogicBattleModeClient_getOwnCharacter(battleMode);
+            
+            if (!ownCharacter || ownCharacter.isNull()) return;
+
+            const ownTeamId = natives.LogicBattleModeClient_getOwnPlayerTeam(battleMode);
+
+            const objMgr = battleMode.add(40).readPointer();
+            if (!objMgr || objMgr.isNull()) return;
+
+            const ownPlayerID = objMgr.add(0x28).readInt();
+
+            const objects = objMgr.readPointer();
+            const count = objMgr.add(12).readU32();
+            if (!objects || objects.isNull() || count === 0 || count > 1000) return;
+            handleObjects(objects, count, ownTeamId);
         }
     });
 }
@@ -907,8 +1008,13 @@ function main() {
             });
 
             menu.addButton("pathfind_test", "Pathfind test", {
-                on:  () => startWalk(9150, 9150, ok => log("pathfind: " + (ok ? "OK" : "selhalo"))),
-                off: () => { stopWalk(); log("pathfind zastaven"); }
+                on:  () => {
+                    state.autofarm = true;
+                },
+                off: () => {
+                    state.autofarm = false;
+                    stopWalk();
+                }
             });
 
             menu.addLogButton();

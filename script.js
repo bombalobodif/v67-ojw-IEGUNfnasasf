@@ -469,11 +469,15 @@ function exitBattle() {
 }
 
 function joinBattle() {
-    var homeMode = natives.homeModeGetInstance();
-    var homeScreen = natives.getHomeScreen(homeMode);
-    var homePage = natives.getHomePage(homeScreen);
+    try {
+        var homeMode = natives.homeModeGetInstance();
+        var homeScreen = natives.getHomeScreen(homeMode);
+        var homePage = natives.getHomePage(homeScreen);
 
-    natives.normalGameStart(homePage);
+        natives.normalGameStart(homePage);
+    } catch (e) {
+        log("Error: " + e);
+    }
 }
 
 function autoRejoin() {

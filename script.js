@@ -5,7 +5,6 @@
 const base = Module.findBaseAddress("libg.so");
 
 const OFFSETS = Object.freeze({
-    // — battle —
     BattleMode_getInstance:                        0x954EE0,
     BattleMode_objectManagerPtr:                   0x28,
     BattleMode_clientInputManager:                 0x58,
@@ -13,7 +12,6 @@ const OFFSETS = Object.freeze({
     setGameOverResult:                             0x9559E0,
     normalGameStart:                               0x907A24,
 
-    // — battle screen —
     GameScreen__getLogicBattle:                    0x818BCC,
     BattleScreen_getInstance:                      0x80F4C8,
     BattleScreen__update:                          0x56FA80,
@@ -38,7 +36,6 @@ const OFFSETS = Object.freeze({
     BattleScreen_spectateWidget:                   0x3C8,
     BattleScreen_spectateTextField:                0x3D8,
 
-    // — logic battle mode client —
     LogicBattleModeClient_update:                  0xB8EEE0,
     LogicBattleModeClient_getOwnCharacter:         0xB90A28,
     LogicBattleModeClient_getOwnPlayerTeam:        0xB90680,
@@ -49,7 +46,6 @@ const OFFSETS = Object.freeze({
     LogicBattleModeClient__setRandomSeed:          0xB8E878,
     LogicBattleModeClient__setPlayerAvatar:        0xB8EDF0,
 
-    // — game object —
     LogicGameObjectClient_getGlobalID:             0xAE49C8,
     LogicGameObjectClient_getX:                    0xAE4A1C,
     LogicGameObjectClient_getY:                    0xAE4A24,
@@ -62,7 +58,6 @@ const OFFSETS = Object.freeze({
     GameObj_team:                                  0x40,
     GameObj_deadFlag:                              0xD0,
 
-    // — character —
     LogicCharacterClient__getWeaponSkill:          0xAB4418,
     LogicCharacterClient__getCarryableData:        0xAB35D4,
     LogicCharacterClient__getLinkedCarryable:      0xAB4728,
@@ -71,7 +66,6 @@ const OFFSETS = Object.freeze({
     CharData_speed:                                0x1C4,
     CharData_brawlerId:                            0x18,
 
-    // — projectile —
     LogicProjectileData_getRadius:                 0xA8164C,
     LogicProjectileData_getSpeed:                  0xA815CC,
     LogicProjectileData__isBeam:                   0xA81770,
@@ -83,7 +77,6 @@ const OFFSETS = Object.freeze({
     VTABLE_CHARACTER_DATA:                         0x44BF6F8,
     getProjData:                                   0xB1D358,
 
-    // — tile map —
     TileMap_Width:                                 0xC4,
     TileMap_Height:                                0xC8,
     TileMap_TilesArray:                            0x20,
@@ -92,28 +85,24 @@ const OFFSETS = Object.freeze({
     LogicTileMap__isPlayerLineOfSightClear:        0x9DF84C,
     LogicTile__setData:                            0x9DA7E0,
 
-    // — client input —
     ClientInput_constructor_int:                   0xB53A68,
     ClientInputManager_addInput:                   0x79BF3C,
     ClientInput_x:                                 0xC,
     ClientInput_y:                                 0x10,
     ClientInputMessage_sendMovement:               0x7C13DC,
 
-    // — GUI —
     Gui_getInstance:                               0x591644,
     Gui_showFloaterTextAtDefaultPos:               0x818CDC,
     GUI__showFloaterTextAt:                        0x591F28,
     GUI__showPopup:                                0x592C24,
     GUI__getDefaultFloaterPos:                     0x591DA0,
 
-    // — string —
     StringCtor:                                    0xDCF8F0,
     TextField_setText:                             0xC4A978,
     TextField_setText_ui:                          0x598298,
     String__format:                                0xDD244C,
     nativeCopyToClipboard:                         0xDD91F8,
 
-    // — home / navigation —
     HomeMode__getInstance:                         0x95F488,
     getHomeScreen:                                 0x9605E4,
     getHomePage:                                   0x81E528,
@@ -122,7 +111,6 @@ const OFFSETS = Object.freeze({
     GameStateManager__getInstance:                 0x95DAE4,
     GameStateManager__isState:                     0x95E7C0,
 
-    // — display / movie clip —
     MovieClip__gotoAndStopFrameIndex:              0xC1C90C,
     MovieClip__getTextFieldByName:                 0xC1D550,
     MovieClip__setChildVisible:                    0xC1DD48,
@@ -134,13 +122,11 @@ const OFFSETS = Object.freeze({
     Stage_addChild:                                0xC336A0,
     StageInstanceGlobalPtr:                        0x12393E0,
 
-    // — skill —
     LogicSkillData__getActiveTime:                 0xA940DC,
     LogicSkillData__getRechargeTime:               0xA943C0,
     LogicSkillData__getMaxCharge:                  0xA943D0,
     LogicSkillData__getMsBetweenAttacks:           0xA943F8,
 
-    // — misc —
     HeroData_namePtr:                              0x48,
     Joy_currentX:                                  0x94,
     Joy_currentY:                                  0x98,
@@ -176,37 +162,37 @@ function fns() {
     if (_n) return _n;
     _n = {
         BattleMode_getInstance:
-            new NativeFunction(base.add(OFFSETS.BattleMode_getInstance),                        "pointer", []),
+            new NativeFunction(base.add(OFFSETS.BattleMode_getInstance),                         "pointer", []),
         LogicGameObjectClient_getX:
-            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getX),                    "int32",   ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getX),                     "int32",   ["pointer"]),
         LogicGameObjectClient_getY:
-            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getY),                    "int32",   ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getY),                     "int32",   ["pointer"]),
         LogicBattleModeClient_getOwnCharacter:
-            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnCharacter),         "pointer", ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnCharacter),          "pointer", ["pointer"]),
         LogicBattleModeClient_getOwnPlayerTeam:
-            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnPlayerTeam),        "int32",   ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnPlayerTeam),         "int32",   ["pointer"]),
         LogicBattleModeClient_setClientPredictionMoveTo:
-            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_setClientPredictionMoveTo),"void",   ["pointer","int","int","int"]),
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_setClientPredictionMoveTo),"void",    ["pointer","int","int","int"]),
         LogicBattleModeClient_getTileMap:
-            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getTileMap),              "pointer", ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getTileMap),               "pointer", ["pointer"]),
         LogicGameObjectClient_getGlobalID:
-            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getGlobalID),             "uint32",  ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getGlobalID),              "uint32",  ["pointer"]),
         LogicGameObjectClient_getData:
-            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getData),                 "pointer", ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getData),                  "pointer", ["pointer"]),
         LogicProjectileData_getSpeed:
-            new NativeFunction(base.add(OFFSETS.LogicProjectileData_getSpeed),                  "uint32",  ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicProjectileData_getSpeed),                   "uint32",  ["pointer"]),
         LogicProjectileData_getRadius:
-            new NativeFunction(base.add(OFFSETS.LogicProjectileData_getRadius),                 "uint32",  ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicProjectileData_getRadius),                  "uint32",  ["pointer"]),
         LogicCharacterData_getCollisionRadius:
-            new NativeFunction(base.add(OFFSETS.LogicCharacterData_getCollisionRadius),         "uint32",  ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.LogicCharacterData_getCollisionRadius),          "uint32",  ["pointer"]),
         BattleScreen_getLogicBattle:
-            new NativeFunction(base.add(OFFSETS.GameScreen__getLogicBattle),                    "pointer", ["pointer"]),
+            new NativeFunction(base.add(OFFSETS.GameScreen__getLogicBattle),                     "pointer", ["pointer"]),
         BattleScreen_getInstance:
-            new NativeFunction(base.add(OFFSETS.BattleScreen_getInstance),                      "pointer", []),
+            new NativeFunction(base.add(OFFSETS.BattleScreen_getInstance),                       "pointer", []),
         ClientInput_ctor:
-            new NativeFunction(base.add(OFFSETS.ClientInput_constructor_int),                   "pointer", ["pointer","int"]),
+            new NativeFunction(base.add(OFFSETS.ClientInput_constructor_int),                    "pointer", ["pointer","int"]),
         ClientInputManager_add:
-            new NativeFunction(base.add(OFFSETS.ClientInputManager_addInput),                   "void",    ["pointer","pointer"]),
+            new NativeFunction(base.add(OFFSETS.ClientInputManager_addInput),                    "void",    ["pointer","pointer"]),
         Gui_getInstance:
             new NativeFunction(base.add(OFFSETS.Gui_getInstance),                               "pointer", []),
         Gui_showFloaterTextAtDefaultPos:
@@ -302,9 +288,9 @@ function maybeRefreshWallCache(logic, now = Date.now()) {
         const tm = fns().LogicBattleModeClient_getTileMap(logic);
         if (tm && !tm.isNull()) _fullRebuild(tm);
     };
-    if (!wallCache.wall)                                          { rebuild(); return; }
-    if (now - wallCache.lastFullBuild >= FULL_REBUILD_MS)        { rebuild(); return; }
-    if (now - wallCache.lastFastScan  >= FAST_RESCAN_MS)         _fastRescan();
+    if (!wallCache.wall)                                   { rebuild(); return; }
+    if (now - wallCache.lastFullBuild >= FULL_REBUILD_MS)  { rebuild(); return; }
+    if (now - wallCache.lastFastScan  >= FAST_RESCAN_MS)   _fastRescan();
 }
 
 function losCheck(wx0, wy0, wx1, wy1, checkBit) {
@@ -341,6 +327,75 @@ function traceWallHit(wx, wy, dirX, dirY, maxDist, checkBit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  POISON ZONE (shrinking map)
+// ─────────────────────────────────────────────────────────────────────────────
+// Každých POISON_TICK_MS se border zmenší o 1 tile ze všech stran.
+// poisonBorder = kolik tilů je z každé strany už "otravných".
+
+const POISON_TICK_MS = 5000;
+
+const poisonZone = {
+    enabled: false,
+    border: 0,          // aktuální šířka poison borderu v tilech
+    lastTick: 0,
+    _iv: null,
+};
+
+function poisonStart() {
+    poisonZone.border   = 0;
+    poisonZone.lastTick = Date.now();
+    poisonZone._iv = setInterval(() => {
+        poisonZone.border++;
+        log(`Poison border: ${poisonZone.border} tiles`);
+    }, POISON_TICK_MS);
+    log("Poison zone started");
+}
+
+function poisonStop() {
+    if (poisonZone._iv) { clearInterval(poisonZone._iv); poisonZone._iv = null; }
+    poisonZone.border = 0;
+    log("Poison zone stopped");
+}
+
+// Vrátí true pokud je tile (tx, ty) v poisonu
+function isTileInPoison(tx, ty) {
+    if (!poisonZone.enabled || poisonZone.border <= 0) return false;
+    const { w, h } = wallCache;
+    if (w === 0 || h === 0) return false;
+    const b = poisonZone.border;
+    return tx < b || ty < b || tx >= (w - b) || ty >= (h - b);
+}
+
+// Vrátí true pokud je world pozice v poisonu
+function isPosInPoison(wx, wy) {
+    return isTileInPoison((wx / TILE_SIZE) | 0, (wy / TILE_SIZE) | 0);
+}
+
+// Bezpečný střed mapy (nejbezpečnější oblast)
+function getSafeCenter() {
+    const { w, h } = wallCache;
+    return {
+        x: (w / 2 | 0) * TILE_SIZE + TILE_SIZE / 2,
+        y: (h / 2 | 0) * TILE_SIZE + TILE_SIZE / 2,
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  WORLD STATE  (hráči, střely)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const worldState = {
+    enemies:     [],   // [{ x, y, teamId }]  – type=1 nepřátelé
+    projectiles: [],   // [{ x, y }]           – type=2 střely
+    myTeamId:    -1,
+    myX: 0, myY: 0,
+};
+
+// Kolik world-jednotek od nepřítele/střely se snažíme udržet
+const ENEMY_AVOID_RADIUS  = TILE_SIZE * 4;   // 4 tile
+const BULLET_AVOID_RADIUS = TILE_SIZE * 3;   // 3 tile
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  MOVEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -365,12 +420,10 @@ function getMyPosition(logic) {
 }
 
 function sendMove(logic, battle, wx, wy) {
-    wx = wx | 0;
-    wy = wy | 0;
+    wx = wx | 0; wy = wy | 0;
     if (!isFinite(wx) || !isFinite(wy) || Math.abs(wx) > 200000 || Math.abs(wy) > 200000) return;
     try {
         fns().LogicBattleModeClient_setClientPredictionMoveTo(logic, wx, wy, 1);
-
         if (!battle || battle.isNull()) return;
         const manager = battle.add(OFFSETS.BattleMode_clientInputManager).readPointer();
         if (!manager || manager.isNull()) return;
@@ -383,8 +436,42 @@ function sendMove(logic, battle, wx, wy) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  PATHFINDING  (A* na tile mřížce)
+//  PATHFINDING  (A* s podporou poison-zóny a danger-cost)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Vrací přidaný cost pro tile (tx,ty) — poison + blízkost nepřátel/střel
+function tileDangerCost(tx, ty) {
+    let cost = 0;
+
+    // Poison zone — silná penalizace
+    if (isTileInPoison(tx, ty)) cost += 10000;
+
+    const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+    const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+
+    // Nepřátelé
+    for (const e of worldState.enemies) {
+        const dx = wx - e.x, dy = wy - e.y;
+        const d2 = dx * dx + dy * dy;
+        const r2 = ENEMY_AVOID_RADIUS * ENEMY_AVOID_RADIUS;
+        if (d2 < r2) {
+            // čím blíže, tím vyšší cost (max ~500 při dotyku)
+            cost += Math.round(500 * (1 - d2 / r2));
+        }
+    }
+
+    // Střely
+    for (const p of worldState.projectiles) {
+        const dx = wx - p.x, dy = wy - p.y;
+        const d2 = dx * dx + dy * dy;
+        const r2 = BULLET_AVOID_RADIUS * BULLET_AVOID_RADIUS;
+        if (d2 < r2) {
+            cost += Math.round(800 * (1 - d2 / r2));
+        }
+    }
+
+    return cost;
+}
 
 function pathfind(startWX, startWY, goalWX, goalWY) {
     const { wall, w, h } = wallCache;
@@ -400,12 +487,13 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
     if (wall[gy * w + gx] & BIT_MOVE) return null;
 
     const idx  = (x, y) => y * w + x;
-    const heur = (x, y) => Math.abs(x - gx) + Math.abs(y - gy);
+    const heur = (x, y) => (Math.abs(x - gx) + Math.abs(y - gy)) * 10;
 
     const INF   = 0x7fffffff;
     const gCost = new Int32Array(w * h).fill(INF);
     const prev  = new Int32Array(w * h).fill(-1);
 
+    // Min-heap pomocí sorted insert (pro tento rozsah map je to dost rychlé)
     const open = [];
     const push = (f, x, y) => {
         let lo = 0, hi = open.length;
@@ -428,12 +516,12 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
             if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
             if (wall[idx(nx, ny)] & BIT_MOVE) continue;
             if (d >= 4 && ((wall[idx(x, ny)] & BIT_MOVE) || (wall[idx(nx, y)] & BIT_MOVE))) continue;
-            const ng = gCost[ci] + COST[d];
+            const ng = gCost[ci] + COST[d] + tileDangerCost(nx, ny);
             const ni = idx(nx, ny);
             if (ng >= gCost[ni]) continue;
             gCost[ni] = ng;
             prev[ni]  = ci;
-            push(ng + heur(nx, ny) * 10, nx, ny);
+            push(ng + heur(nx, ny), nx, ny);
         }
     }
 
@@ -460,21 +548,20 @@ function startWalk(goalWX, goalWY, onDone = null) {
     stopWalk();
 
     const ctx = getBattleContext();
-    if (!ctx) { log("startWalk: nejsem ve hře"); onDone?.(false); return false; }
+    if (!ctx) { onDone?.(false); return false; }
 
     maybeRefreshWallCache(ctx.logic);
 
     const pos = getMyPosition(ctx.logic);
-    if (!pos) { log("startWalk: nelze získat pozici"); onDone?.(false); return false; }
+    if (!pos) { onDone?.(false); return false; }
 
     const path = pathfind(pos.x, pos.y, goalWX, goalWY);
-    if (!path) { log("startWalk: cesta nenalezena"); onDone?.(false); return false; }
+    if (!path) { onDone?.(false); return false; }
 
     walker.active  = true;
     walker.path    = path;
     walker.stepIdx = 0;
     walker.onDone  = onDone;
-    log(`startWalk: ${path.length} wp → (${goalWX}, ${goalWY})`);
 
     walker._iv = setInterval(() => {
         if (!walker.active) { clearInterval(walker._iv); return; }
@@ -490,7 +577,6 @@ function startWalk(goalWX, goalWY, onDone = null) {
         if (dx * dx + dy * dy < TILE_SIZE * TILE_SIZE) {
             if (++walker.stepIdx >= walker.path.length) {
                 stopWalk();
-                log("startWalk: cíl dosažen");
                 walker.onDone?.(true);
             }
         }
@@ -503,6 +589,214 @@ function stopWalk() {
     walker.active = false;
     if (walker._iv) { clearInterval(walker._iv); walker._iv = null; }
     walker.path = null; walker.stepIdx = 0; walker.onDone = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  AUTOFARM AI
+// ─────────────────────────────────────────────────────────────────────────────
+//
+//  Logika:
+//  1. Každých AI_TICK_MS přepočítáme situaci.
+//  2. Pokud jsme v poisonu → jdeme ke středu mapy (priorita 1).
+//  3. Pokud je poblíž střela (BULLET_AVOID_RADIUS) → utečeme od ní (priorita 2).
+//  4. Pokud je poblíž nepřítel (ENEMY_AVOID_RADIUS) → vybereme bezpečný roaming bod (priorita 3).
+//  5. Jinak → zvolíme náhodný roaming bod po bezpečné části mapy (priorita 4).
+//
+//  Cíl se přepočítává pouze když:
+//    - dorazíme na předchozí cíl, nebo
+//    - situace se výrazně změní (nový nebezpečný podnět)
+
+const AI_TICK_MS      = 600;   // jak často přehodnocujeme situaci
+const ROAM_CANDIDATES = 12;    // kolik náhodných bodů generujeme při roamingu
+
+const aiState = {
+    _iv: null,
+    currentGoalX: 0,
+    currentGoalY: 0,
+    mode: "idle",   // "idle" | "escape_poison" | "dodge_bullet" | "avoid_enemy" | "roam"
+    stuckCounter: 0,
+    lastX: 0, lastY: 0,
+};
+
+function aiStart() {
+    aiStop();
+    aiState.mode = "idle";
+    aiState.stuckCounter = 0;
+    aiState._iv = setInterval(aiTick, AI_TICK_MS);
+    log("AutoFarm AI started");
+}
+
+function aiStop() {
+    if (aiState._iv) { clearInterval(aiState._iv); aiState._iv = null; }
+    stopWalk();
+    aiState.mode = "idle";
+    log("AutoFarm AI stopped");
+}
+
+function aiTick() {
+    const ctx = getBattleContext();
+    if (!ctx) return;
+
+    const pos = getMyPosition(ctx.logic);
+    if (!pos) return;
+
+    // Detekce zaseknutí
+    const ddx = pos.x - aiState.lastX, ddy = pos.y - aiState.lastY;
+    if (ddx * ddx + ddy * ddy < 50 * 50 && aiState.mode !== "idle") {
+        aiState.stuckCounter++;
+        if (aiState.stuckCounter >= 4) {
+            aiState.stuckCounter = 0;
+            stopWalk();
+            // Vygeneruj záchranný bod daleko od aktuální pozice
+            const escape = pickRoamPoint(pos.x, pos.y, true);
+            if (escape) startWalk(escape.x, escape.y);
+            return;
+        }
+    } else {
+        aiState.stuckCounter = 0;
+    }
+    aiState.lastX = pos.x; aiState.lastY = pos.y;
+
+    // ── Priorita 1: Poison ──────────────────────────────────────────────────
+    if (poisonZone.enabled && isPosInPoison(pos.x, pos.y)) {
+        if (aiState.mode !== "escape_poison") {
+            aiState.mode = "escape_poison";
+            stopWalk();
+            const safe = pickSafePoint(pos.x, pos.y);
+            log(`AI: poison! → (${safe.x|0}, ${safe.y|0})`);
+            startWalk(safe.x, safe.y);
+        }
+        return;
+    }
+
+    // ── Priorita 2: Střela blízko ────────────────────────────────────────────
+    const closeBullet = closestThreat(pos.x, pos.y, worldState.projectiles, BULLET_AVOID_RADIUS);
+    if (closeBullet) {
+        if (aiState.mode !== "dodge_bullet") {
+            aiState.mode = "dodge_bullet";
+            stopWalk();
+            const dodge = fleePoint(pos.x, pos.y, closeBullet.x, closeBullet.y, TILE_SIZE * 5);
+            if (dodge) {
+                log(`AI: dodge bullet`);
+                startWalk(dodge.x, dodge.y);
+            }
+        }
+        return;
+    }
+
+    // ── Priorita 3: Nepřítel blízko ──────────────────────────────────────────
+    const closeEnemy = closestThreat(pos.x, pos.y, worldState.enemies, ENEMY_AVOID_RADIUS);
+    if (closeEnemy) {
+        if (aiState.mode !== "avoid_enemy") {
+            aiState.mode = "avoid_enemy";
+            stopWalk();
+            const flee = fleePoint(pos.x, pos.y, closeEnemy.x, closeEnemy.y, TILE_SIZE * 6);
+            if (flee) {
+                log(`AI: avoid enemy`);
+                startWalk(flee.x, flee.y);
+            }
+        }
+        return;
+    }
+
+    // ── Priorita 4: Roaming ──────────────────────────────────────────────────
+    if (!walker.active || aiState.mode !== "roam") {
+        aiState.mode = "roam";
+        const pt = pickRoamPoint(pos.x, pos.y, false);
+        if (pt) {
+            log(`AI: roam → (${pt.x|0}, ${pt.y|0})`);
+            startWalk(pt.x, pt.y, () => { aiState.mode = "idle"; });
+        }
+    }
+}
+
+// Nejbližší hrozba do daného rádiusu, nebo null
+function closestThreat(myX, myY, list, radius) {
+    let best = null, bestD2 = radius * radius;
+    for (const t of list) {
+        const dx = myX - t.x, dy = myY - t.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestD2) { bestD2 = d2; best = t; }
+    }
+    return best;
+}
+
+// Bod v opačném směru od hrozby, snap na grid a bezpečnostní kontroly
+function fleePoint(myX, myY, threatX, threatY, dist) {
+    const dx = myX - threatX, dy = myY - threatY;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / len, ny = dy / len;
+
+    // Zkus několik vzdáleností (nejdál → nejblíž)
+    for (const d of [dist, dist * 0.7, dist * 0.4]) {
+        const tx = (myX + nx * d) | 0;
+        const ty = (myY + ny * d) | 0;
+        if (isPosInPoison(tx, ty)) continue;
+        const tileX = (tx / TILE_SIZE) | 0, tileY = (ty / TILE_SIZE) | 0;
+        if (tileX < 0 || tileX >= wallCache.w || tileY < 0 || tileY >= wallCache.h) continue;
+        if (wallCache.wall && wallCache.wall[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
+        return { x: tx, y: ty };
+    }
+    // Záloha: střed bezpečné zóny
+    return pickSafePoint(myX, myY);
+}
+
+// Vrátí bezpečný bod blízko středu (mimo poison)
+function pickSafePoint(myX, myY) {
+    const { w, h } = wallCache;
+    if (w === 0 || h === 0) return getSafeCenter();
+    const b = (poisonZone.enabled ? poisonZone.border : 0) + 2; // +2 tile buffer
+    const safeW = Math.max(1, w - b * 2);
+    const safeH = Math.max(1, h - b * 2);
+
+    // Nejprve zkus přesný střed
+    const cx = (w / 2 | 0) * TILE_SIZE + TILE_SIZE / 2;
+    const cy = (h / 2 | 0) * TILE_SIZE + TILE_SIZE / 2;
+    if (!isPosInPoison(cx, cy)) return { x: cx, y: cy };
+
+    // Zkus náhodné body ve safe zóně
+    for (let i = 0; i < 20; i++) {
+        const rx = (b + Math.random() * safeW | 0) * TILE_SIZE + TILE_SIZE / 2;
+        const ry = (b + Math.random() * safeH | 0) * TILE_SIZE + TILE_SIZE / 2;
+        const tileX = (rx / TILE_SIZE) | 0, tileY = (ry / TILE_SIZE) | 0;
+        if (wallCache.wall && wallCache.wall[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
+        if (!isPosInPoison(rx, ry)) return { x: rx, y: ry };
+    }
+    return { x: cx, y: cy };
+}
+
+// Roaming bod: náhodný bezpečný tile, min. 3 tile od aktuální pozice
+function pickRoamPoint(myX, myY, forceDistant) {
+    const { wall, w, h } = wallCache;
+    if (!wall || w === 0 || h === 0) return null;
+
+    const b       = (poisonZone.enabled ? poisonZone.border : 0) + 1;
+    const minDist = forceDistant ? TILE_SIZE * 8 : TILE_SIZE * 3;
+    const minD2   = minDist * minDist;
+
+    let best = null, bestScore = -1;
+
+    for (let i = 0; i < ROAM_CANDIDATES; i++) {
+        const tx = b + (Math.random() * (w - b * 2) | 0);
+        const ty = b + (Math.random() * (h - b * 2) | 0);
+        if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
+        if (wall[ty * w + tx] & BIT_MOVE) continue;
+
+        const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+        const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+        if (isPosInPoison(wx, wy)) continue;
+
+        const dx = wx - myX, dy = wy - myY;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < minD2) continue;
+
+        // Score: upřednostnění bodů daleko od nepřátel + blízko středu safe zóny
+        const dangerCost = tileDangerCost(tx, ty);
+        const score = d2 / (TILE_SIZE * TILE_SIZE) - dangerCost / 100;
+        if (score > bestScore) { bestScore = score; best = { x: wx, y: wy }; }
+    }
+
+    return best;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -795,7 +1089,7 @@ class Menu {
 
     log(message) {
         logMessages.push(`[${new Date().toLocaleTimeString()}] ${message}`);
-        if (logMessages.length > 20) logMessages.splice(0, logMessages.length - 20);
+        if (logMessages.length > 30) logMessages.splice(0, logMessages.length - 30);
         const tv = this.#logTextView, sv = this.#logScrollView;
         if (!tv) return;
         const cl = this.#cl;
@@ -825,17 +1119,17 @@ class Menu {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CharacterType = {
-    0:  "Hero",
-    1:  "Npc_Boss",
-    2:  "Minion_FollowOwner",
-    3:  "Minion_FindEnemies",
-    4:  "LootBox",
-    6:  "Pvp_Base",
-    7:  "Minion_Building_charges_ulti",
-    8:  "Minion_Dog",
-    0xC: "RoboWars",
-    0xD: "Train",
-    0xF: "Minion_Mirage",
+    0:    "Hero",
+    1:    "Npc_Boss",
+    2:    "Minion_FollowOwner",
+    3:    "Minion_FindEnemies",
+    4:    "LootBox",
+    6:    "Pvp_Base",
+    7:    "Minion_Building_charges_ulti",
+    8:    "Minion_Dog",
+    0xC:  "RoboWars",
+    0xD:  "Train",
+    0xF:  "Minion_Mirage",
     0x10: "Npc_Boss_TownCrush",
     0x11: "Carryable",
     0x12: "Minion_Duplicate",
@@ -851,89 +1145,98 @@ const CharacterType = {
     0x1F: "Minion_Shadow_Clone",
 };
 
-let targetX = 0;
-let targetY = 0;
+// globalId / 1_000_000 dává "typ objektu":
+//   1 = Character (hráči, bossové...)
+//   2 = Projectile (střely)
+const OBJ_TYPE_CHARACTER  = 1;
+const OBJ_TYPE_PROJECTILE = 2;
 
-function handleObjects(objects, count, ownTeamId) {
+const state = {
+    autojoin:    false,
+    autofarm:    false,
+    poisonZone:  false,   // ← zapíná postupné zmenšování mapy
+};
+let gameOver = true;
+
+function handleObjects(objects, count, ownTeamId, battleMode) {
+    const newEnemies     = [];
+    const newProjectiles = [];
+
     for (let i = 0; i < count; i++) {
         const objPtr = objects.add(i * 8).readPointer();
         if (!objPtr || objPtr.isNull()) continue;
 
         const globalId = fns().LogicGameObjectClient_getGlobalID(objPtr);
-        const dataPtr  = fns().LogicGameObjectClient_getData(objPtr);
-        if (!dataPtr || dataPtr.isNull()) continue;
+        const objType  = Math.floor(globalId / 1000000);
 
-        const type  = Math.floor(globalId / 1000000);
-        const index = globalId % 1000000;
+        // Mrtvé objekty přeskočíme
+        try { if (objPtr.add(OFFSETS.GameObj_deadFlag).readU8() !== 0) continue; } catch (_) { continue; }
 
-        const teamId          = objPtr.add(OFFSETS.GameObj_team).readS32();
-        const maxHP           = objPtr.add(0xac).readS32();
-        const currentHP       = objPtr.add(0xa8).readS32();
-        const characterTypeId = dataPtr.add(0x23C).readS32();
-        const typeName        = CharacterType[characterTypeId] ?? "Unknown";
+        const x = fns().LogicGameObjectClient_getX(objPtr);
+        const y = fns().LogicGameObjectClient_getY(objPtr);
 
-        if (type === 1) {
-            const x = fns().LogicGameObjectClient_getX(objPtr);
-            const y = fns().LogicGameObjectClient_getY(objPtr);
-
-            // startWalk(x, y);
+        if (objType === OBJ_TYPE_CHARACTER) {
+            // type=1: hráč / postava
+            const teamId = objPtr.add(OFFSETS.GameObj_team).readS32();
+            // Nepřátelé = jiný tým než my
+            if (teamId !== ownTeamId) {
+                newEnemies.push({ x, y, teamId });
+            }
+        } else if (objType === OBJ_TYPE_PROJECTILE) {
+            // type=2: střela
+            newProjectiles.push({ x, y });
         }
     }
-}
 
-const state = {
-    autojoin: false,
-    autofarm: false
-};
-let gameOver = true;
+    worldState.enemies     = newEnemies;
+    worldState.projectiles = newProjectiles;
+    worldState.myTeamId    = ownTeamId;
+}
 
 function hookGameEvents() {
     Interceptor.attach(base.add(OFFSETS.normalGameStart), {
-        onEnter() { log("new game"); gameOver = false; }
+        onEnter() {
+            log("new game");
+            gameOver = false;
+            // Reset poison border na začátku hry
+            if (state.poisonZone) {
+                poisonZone.border = 0;
+                poisonZone.lastTick = Date.now();
+            }
+        }
     });
 
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter() {
             gameOver = true;
             log("game over");
+            aiStop();
             if (!state.autojoin) return;
             setTimeout(() => { log("exiting");   exitBattle(); },  6000);
             setTimeout(() => { log("rejoining"); joinBattle();  }, 20000);
         }
     });
 
-    Interceptor.attach(base.add(OFFSETS.BattleScreen_getClosestTargetForAutoshoot), {
-        onLeave: function(retval) {
-            if (retval == 0x0) return;
-            if (!state.autofarm) return;
-
-            const x = fns().LogicGameObjectClient_getX(retval);
-            const y = fns().LogicGameObjectClient_getY(retval);
-            if (x !== targetX || y !== targetY) {
-                targetX = x;
-                targetY = y;
-                stopWalk();
-                startWalk(x, y);
-            }
-        }
-    });
-
+    // Hlavní tick hry – sběr objektů
     Interceptor.attach(base.add(OFFSETS.LogicBattleModeClient_update), {
         onEnter(args) {
             const battleMode   = args[0];
             const ownCharacter = fns().LogicBattleModeClient_getOwnCharacter(battleMode);
             if (!ownCharacter || ownCharacter.isNull()) return;
 
-            const ownTeamId  = fns().LogicBattleModeClient_getOwnPlayerTeam(battleMode);
-            const objMgr     = battleMode.add(40).readPointer();
+            const ownTeamId = fns().LogicBattleModeClient_getOwnPlayerTeam(battleMode);
+            const objMgr    = battleMode.add(40).readPointer();
             if (!objMgr || objMgr.isNull()) return;
 
-            const ownPlayerID = objMgr.add(0x28).readInt();
-            const objects     = objMgr.readPointer();
-            const count       = objMgr.add(12).readU32();
+            const objects = objMgr.readPointer();
+            const count   = objMgr.add(12).readU32();
             if (!objects || objects.isNull() || count === 0 || count > 1000) return;
 
-            handleObjects(objects, count, ownTeamId);
+            // Aktualizuj world state (nepřátelé, střely)
+            handleObjects(objects, count, ownTeamId, battleMode);
+
+            // Obnov wall cache
+            maybeRefreshWallCache(battleMode);
         }
     });
 }
@@ -989,9 +1292,24 @@ function main() {
                 on: () => { joinBattle(); log("joined"); }
             });
 
-            menu.addButton("pathfind_test", "Pathfind test", {
-                on:  () => { state.autofarm = true; },
-                off: () => { state.autofarm = false; stopWalk(); }
+            // AutoFarm – AI pohyb + vyhýbání nepřátelům/střelám
+            menu.addButton("autofarm", "AutoFarm", {
+                on:  () => { state.autofarm = true;  aiStart(); },
+                off: () => { state.autofarm = false; aiStop();  },
+            });
+
+            // Poison Zone – postupné zmenšování safe zóny každých 5s
+            menu.addButton("poison_zone", "Poison Zone", {
+                on: () => {
+                    state.poisonZone    = true;
+                    poisonZone.enabled  = true;
+                    poisonStart();
+                },
+                off: () => {
+                    state.poisonZone   = false;
+                    poisonZone.enabled = false;
+                    poisonStop();
+                },
             });
 
             menu.addLogButton();

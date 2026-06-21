@@ -171,7 +171,6 @@ const OFFSETS = Object.freeze({
 
 const malloc = new NativeFunction(Module.getExportByName("libc.so", "malloc"), "pointer", ["uint"]);
 
-// Lazy-inicializace – všechny NativeFunction objekty se vytvoří jednou při prvním volání
 let _n = null;
 function fns() {
     if (_n) return _n;
@@ -184,6 +183,8 @@ function fns() {
             new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getY),                    "int32",   ["pointer"]),
         LogicBattleModeClient_getOwnCharacter:
             new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnCharacter),         "pointer", ["pointer"]),
+        LogicBattleModeClient_getOwnPlayerTeam:
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnPlayerTeam),        "int32",   ["pointer"]),
         LogicBattleModeClient_setClientPredictionMoveTo:
             new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_setClientPredictionMoveTo),"void",   ["pointer","int","int","int"]),
         LogicBattleModeClient_getTileMap:
@@ -343,7 +344,6 @@ function traceWallHit(wx, wy, dirX, dirY, maxDist, checkBit) {
 //  MOVEMENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Vrátí { logic, battle } nebo null – vždy čerstvě (ptry se mohou měnit)
 function getBattleContext() {
     try {
         const screen = fns().BattleScreen_getInstance();
@@ -356,7 +356,6 @@ function getBattleContext() {
     } catch (_) { return null; }
 }
 
-// Vrátí { x, y } aktuální pozice vlastní postavy, nebo null
 function getMyPosition(logic) {
     try {
         const own = fns().LogicBattleModeClient_getOwnCharacter(logic);
@@ -365,18 +364,13 @@ function getMyPosition(logic) {
     } catch (_) { return null; }
 }
 
-// Pošle pohybový input na (wx, wy).
-// setClientPredictionMoveTo zajišťuje vizuálně plynulý pohyb na klientu.
-// ClientInput paket ho pak potvrdí na serveru.
 function sendMove(logic, battle, wx, wy) {
     wx = wx | 0;
     wy = wy | 0;
     if (!isFinite(wx) || !isFinite(wy) || Math.abs(wx) > 200000 || Math.abs(wy) > 200000) return;
     try {
-        // Okamžitá klientská predikce – vizuálně plynulý pohyb
         fns().LogicBattleModeClient_setClientPredictionMoveTo(logic, wx, wy, 1);
 
-        // Síťový paket pro server
         if (!battle || battle.isNull()) return;
         const manager = battle.add(OFFSETS.BattleMode_clientInputManager).readPointer();
         if (!manager || manager.isNull()) return;
@@ -392,7 +386,6 @@ function sendMove(logic, battle, wx, wy) {
 //  PATHFINDING  (A* na tile mřížce)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Vrátí pole [{x,y}] world souřadnic od startu k cíli, nebo null pokud cesta neexistuje.
 function pathfind(startWX, startWY, goalWX, goalWY) {
     const { wall, w, h } = wallCache;
     if (!wall || w === 0 || h === 0) return null;
@@ -404,7 +397,7 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
     const gy = clamp((goalWY  / TILE_SIZE) | 0, h - 1);
 
     if (sx === gx && sy === gy) return [{ x: goalWX, y: goalWY }];
-    if (wall[gy * w + gx] & BIT_MOVE) return null;   // cíl je zeď
+    if (wall[gy * w + gx] & BIT_MOVE) return null;
 
     const idx  = (x, y) => y * w + x;
     const heur = (x, y) => Math.abs(x - gx) + Math.abs(y - gy);
@@ -413,7 +406,7 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
     const gCost = new Int32Array(w * h).fill(INF);
     const prev  = new Int32Array(w * h).fill(-1);
 
-    const open = [];   // min-heap (binární vyhledávání při insertu)
+    const open = [];
     const push = (f, x, y) => {
         let lo = 0, hi = open.length;
         while (lo < hi) { const mid = (lo + hi) >> 1; open[mid].f <= f ? lo = mid + 1 : hi = mid; }
@@ -434,7 +427,6 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
             const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
             if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
             if (wall[idx(nx, ny)] & BIT_MOVE) continue;
-            // Diagonála: oba sousední tiles musí být volné (zabraňuje tunelování rohem)
             if (d >= 4 && ((wall[idx(x, ny)] & BIT_MOVE) || (wall[idx(nx, y)] & BIT_MOVE))) continue;
             const ng = gCost[ci] + COST[d];
             const ni = idx(nx, ny);
@@ -447,7 +439,6 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
 
     if (gCost[idx(gx, gy)] === INF) return null;
 
-    // Rekonstrukce: středy tilů + přesný cíl na konci
     const path = [];
     let ci = idx(gx, gy);
     while (ci !== -1) {
@@ -460,14 +451,11 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  WALKER  –  postupně prochází waypointy
+//  WALKER
 // ─────────────────────────────────────────────────────────────────────────────
 
 const walker = { active: false, path: null, stepIdx: 0, onDone: null, _iv: null };
 
-// startWalk(goalWX, goalWY, onDone?)
-// Spustí pathfinding a chůzi. Samo si zjistí battle context a pozici.
-// onDone(true/false) – zavolá se po dosažení cíle nebo při selhání.
 function startWalk(goalWX, goalWY, onDone = null) {
     stopWalk();
 
@@ -866,31 +854,31 @@ const CharacterType = {
 let targetX = 0;
 let targetY = 0;
 
-
 function handleObjects(objects, count, ownTeamId) {
-    const now = Date.now();
     for (let i = 0; i < count; i++) {
         const objPtr = objects.add(i * 8).readPointer();
-        const globalId = natives.LogicGameObjectClient_getGlobalID(objPtr);
-        const dataPtr = natives.LogicGameObjectClient_getData(objPtr);
+        if (!objPtr || objPtr.isNull()) continue;
+
+        const globalId = fns().LogicGameObjectClient_getGlobalID(objPtr);
+        const dataPtr  = fns().LogicGameObjectClient_getData(objPtr);
         if (!dataPtr || dataPtr.isNull()) continue;
 
-        const type = Math.floor(globalId / 1000000);
+        const type  = Math.floor(globalId / 1000000);
         const index = globalId % 1000000;
-        
-        const teamId = objPtr.add(0xc
-        const maxHP = objPtr.add(0xac).readS32();
-        const currentHP = objPtr.add(0xa8).readS32();
-        const characterTypeId = dataPtr.add(0x23C).readS32();
-        const typeName = CharacterType[characterTypeId] ?? "Unknown";
 
-        if(type === 1) {
-            const x = natives.LogicGameObjectClient_getX(objPtr);
-            const y = natives.LogicGameObjectClient_getY(objPtr);
-            
-            //startWalk(x,y);
+        const teamId          = objPtr.add(OFFSETS.GameObj_team).readS32();
+        const maxHP           = objPtr.add(0xac).readS32();
+        const currentHP       = objPtr.add(0xa8).readS32();
+        const characterTypeId = dataPtr.add(0x23C).readS32();
+        const typeName        = CharacterType[characterTypeId] ?? "Unknown";
+
+        if (type === 1) {
+            const x = fns().LogicGameObjectClient_getX(objPtr);
+            const y = fns().LogicGameObjectClient_getY(objPtr);
+
+            // startWalk(x, y);
         }
-    }   
+    }
 }
 
 const state = {
@@ -913,44 +901,38 @@ function hookGameEvents() {
             setTimeout(() => { log("rejoining"); joinBattle();  }, 20000);
         }
     });
-    
+
     Interceptor.attach(base.add(OFFSETS.BattleScreen_getClosestTargetForAutoshoot), {
         onLeave: function(retval) {
-            if (retval == 0x0) {
-                return;
-            }
-            
-            if(state.autofarm == false) return;
-            
-            const x = natives.LogicGameObjectClient_getX(retval);
-            const y = natives.LogicGameObjectClient_getY(retval);
-            if(x != targetX || y != targetY) {
+            if (retval == 0x0) return;
+            if (!state.autofarm) return;
+
+            const x = fns().LogicGameObjectClient_getX(retval);
+            const y = fns().LogicGameObjectClient_getY(retval);
+            if (x !== targetX || y !== targetY) {
                 targetX = x;
                 targetY = y;
                 stopWalk();
-                startWalk(x,y);
+                startWalk(x, y);
             }
         }
     });
-    
+
     Interceptor.attach(base.add(OFFSETS.LogicBattleModeClient_update), {
         onEnter(args) {
-            const battleMode = args[0];
-            
-            const ownCharacter = natives.LogicBattleModeClient_getOwnCharacter(battleMode);
-            
+            const battleMode   = args[0];
+            const ownCharacter = fns().LogicBattleModeClient_getOwnCharacter(battleMode);
             if (!ownCharacter || ownCharacter.isNull()) return;
 
-            const ownTeamId = natives.LogicBattleModeClient_getOwnPlayerTeam(battleMode);
-
-            const objMgr = battleMode.add(40).readPointer();
+            const ownTeamId  = fns().LogicBattleModeClient_getOwnPlayerTeam(battleMode);
+            const objMgr     = battleMode.add(40).readPointer();
             if (!objMgr || objMgr.isNull()) return;
 
             const ownPlayerID = objMgr.add(0x28).readInt();
-
-            const objects = objMgr.readPointer();
-            const count = objMgr.add(12).readU32();
+            const objects     = objMgr.readPointer();
+            const count       = objMgr.add(12).readU32();
             if (!objects || objects.isNull() || count === 0 || count > 1000) return;
+
             handleObjects(objects, count, ownTeamId);
         }
     });
@@ -1008,13 +990,8 @@ function main() {
             });
 
             menu.addButton("pathfind_test", "Pathfind test", {
-                on:  () => {
-                    state.autofarm = true;
-                },
-                off: () => {
-                    state.autofarm = false;
-                    stopWalk();
-                }
+                on:  () => { state.autofarm = true; },
+                off: () => { state.autofarm = false; stopWalk(); }
             });
 
             menu.addLogButton();

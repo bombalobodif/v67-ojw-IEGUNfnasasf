@@ -403,7 +403,8 @@ const OFFSETS = {
     setGameOverResult: 0x9559E0,
     normalGameStart: 0x907A24,
     getHomeScreen: 0x9605E4,
-    getHomePage: 0x81E528
+    getHomePage: 0x81E528,
+    guiCloseAllPopups: 0x59361C
 };
 
 const natives = {
@@ -419,7 +420,8 @@ const natives = {
     normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer']),
     getHomeScreen: new NativeFunction(base.add(OFFSETS.getHomeScreen),'pointer',['pointer']),
     homeModeGetInstance: new NativeFunction(base.add(OFFSETS.homeModeGetInstance),'pointer',[]),
-    getHomePage: new NativeFunction(base.add(OFFSETS.getHomePage),'pointer',['pointer'])
+    getHomePage: new NativeFunction(base.add(OFFSETS.getHomePage),'pointer',['pointer']),
+    guiCloseAllPopups: new NativeFunction(base.add(OFFSETS.guiCloseAllPopups),'void',['pointer'])
 };
 
 let state = {
@@ -552,10 +554,18 @@ function main() {
                             header.add(0x0c).writeS32(teammateCount);
                             teamArray = header;
                         }
-                        natives.homePage_startGame(homePage,eventdata,ptr(0),3,ownCharacter,teamArray,0,ptr(0),1);
+                        natives.homePage_startGame(homePage,eventdata,ptr(0),1,ownCharacter,teamArray,0,ptr(0),1);
                     } catch (e) {
                         log("Error: " + e);
                     }
+                }
+            });
+
+            menu.addButton("test", "test", {
+                on: () => {
+                    var gui = natives.guiGetInstance();
+                    natives.guiCloseAllPopups(gui);
+                    log("closed popups");
                 }
             });
 

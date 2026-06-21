@@ -555,7 +555,7 @@ function main() {
 
             menu.addButton("test", "test", {
                 on: () => {
-                    exitBattle();
+                    joinBattle();
                     log("exited");
                 }
             });

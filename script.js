@@ -536,23 +536,26 @@ function main() {
                     var ownCharacter = characters.readPointer();
                     var eventdata = homePage.add(0x3f0).readPointer();
 
-                    var teamArray = ptr(0);
-                    if (teammateCount > 0) {
-                        var dataBuf = Memory.alloc(0x8 * teammateCount);
+                    try {
+                        var teamArray = ptr(0);
+                        if (teammateCount > 0) {
+                            var dataBuf = Memory.alloc(0x8 * teammateCount);
 
-                        for (var i = 0; i < teammateCount; i++) {
-                            var p = characters.add((i + 1) * 0x8).readPointer();
-                            dataBuf.add(i * 0x8).writePointer(p);
+                            for (var i = 0; i < teammateCount; i++) {
+                                var p = characters.add((i + 1) * 0x8).readPointer();
+                                dataBuf.add(i * 0x8).writePointer(p);
+                            }
+
+                            var header = Memory.alloc(0x10);
+                            header.writePointer(dataBuf);   
+                            header.add(0x08).writeS32(teammateCount);
+                            header.add(0x0c).writeS32(teammateCount);
+                            teamArray = header;
                         }
-
-                        var header = Memory.alloc(0x10);
-                        header.writePointer(dataBuf);   
-                        header.add(0x08).writeS32(teammateCount);
-                        header.add(0x0c).writeS32(teammateCount);
-                        teamArray = header;
+                        natives.homePage_startGame(homePage,eventdata,0,1,ownCharacter,teamArray,0,0,1);
+                    } catch (e) {
+                        log("Error: " + e);
                     }
-
-                    natives.homePage_startGame(homePage,eventdata,0,1,ownCharacter,teamArray,0,0,1);
                 }
             });
 

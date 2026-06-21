@@ -492,7 +492,7 @@ function autoRejoin() {
                 }, 6000);
                 setTimeout(function() {
                     joinBattle();
-                }, 6000);
+                }, 12000);
                 log("joining new battle");
             }
             gameOver = true;

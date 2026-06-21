@@ -404,7 +404,8 @@ const OFFSETS = {
     normalGameStart: 0x907A24,
     getHomeScreen: 0x9605E4,
     getHomePage: 0x81E528,
-    guiCloseAllPopups: 0x59361C
+    guiCloseAllPopups: 0x59361C,
+    mapEditorScreen_sendGoHomeMessage: 0x82F928
 };
 
 const natives = {
@@ -421,7 +422,8 @@ const natives = {
     getHomeScreen: new NativeFunction(base.add(OFFSETS.getHomeScreen),'pointer',['pointer']),
     homeModeGetInstance: new NativeFunction(base.add(OFFSETS.homeModeGetInstance),'pointer',[]),
     getHomePage: new NativeFunction(base.add(OFFSETS.getHomePage),'pointer',['pointer']),
-    guiCloseAllPopups: new NativeFunction(base.add(OFFSETS.guiCloseAllPopups),'void',['pointer'])
+    guiCloseAllPopups: new NativeFunction(base.add(OFFSETS.guiCloseAllPopups),'void',['pointer']),
+    mapEditorScreen_sendGoHomeMessage: new NativeFunction(base.add(OFFSETS.mapEditorScreen_sendGoHomeMessage),'void',['pointer'])
 };
 
 let state = {
@@ -563,8 +565,14 @@ function main() {
 
             menu.addButton("test", "test", {
                 on: () => {
-                    var gui = natives.Gui_getInstance();
-                    natives.guiCloseAllPopups(gui);
+                    //var gui = natives.Gui_getInstance();
+                    //natives.guiCloseAllPopups(gui);
+                    const size = 0x901;
+                    const fakeObject = Memory.alloc(size);
+
+                    fakeObject.writeByteArray(new Array(size).fill(0));
+
+                    natives.mapEditorScreen_sendGoHomeMessage(fakeObject);
                     log("closed popups");
                 }
             });

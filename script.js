@@ -552,7 +552,7 @@ function main() {
                             header.add(0x0c).writeS32(teammateCount);
                             teamArray = header;
                         }
-                        natives.homePage_startGame(homePage,eventdata,ptr(0),1,ownCharacter,teamArray,0,ptr(0),1);
+                        natives.homePage_startGame(homePage,eventdata,ptr(0),3,ownCharacter,teamArray,0,ptr(0),1);
                     } catch (e) {
                         log("Error: " + e);
                     }

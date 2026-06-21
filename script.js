@@ -401,7 +401,8 @@ const OFFSETS = {
     updateAutoshoot: 0x8076A0,
     homePage_startGame: 0x8FF70C,
     setGameOverResult: 0x9559E0,
-    normalGameStart: 0x907A24
+    normalGameStart: 0x907A24,
+    getHomeScreen: 0x9605E4
 };
 
 const natives = {
@@ -414,7 +415,9 @@ const natives = {
     Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
     LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
     homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
-    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer'])
+    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer']),
+    getHomeScreen: new NativeFunction(base.add(OFFSETS.getHomeScreen),'pointer',['pointer']),
+    homeModeGetInstance: new NativeFunction(base.add(OFFSETS.homeModeGetInstance),'pointer',[])
 };
 
 let state = {
@@ -521,8 +524,13 @@ function main() {
             });
 
             menu.addButton("replace", "replace", {
-                on: () => { state.replace = true; },
-                off: () => { state.replace = false; }
+                on: () => {
+                    var homeMode = natives.homeModeGetInstance();
+                    var homeScreen = natives.getHomeScreen(homeMode);
+                    var eventdata = homeScreen.add(0x3f0);
+                    log("test1: " + eventdata);
+                    log("test2: " + startGameArgs);
+                }
             });
 
             menu.addLogButton();

@@ -563,7 +563,7 @@ function main() {
 
             menu.addButton("test", "test", {
                 on: () => {
-                    var gui = natives.guiGetInstance();
+                    var gui = natives.Gui_getInstance();
                     natives.guiCloseAllPopups(gui);
                     log("closed popups");
                 }

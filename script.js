@@ -487,8 +487,12 @@ function autoRejoin() {
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
         onEnter: function(args) {
             if(state.autojoin) {
-                exitBattle();
-                joinBattle();
+                setTimeout(function() {
+                    exitBattle();
+                }, 6000);
+                setTimeout(function() {
+                    joinBattle();
+                }, 6000);
                 log("joining new battle");
             }
             gameOver = true;

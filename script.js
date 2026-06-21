@@ -494,11 +494,11 @@ function autoRejoin() {
                 setTimeout(function() {
                     log("exiting")
                     exitBattle();
-                }, 6000);
+                }, 5000);
                 setTimeout(function() {
                     log("rejoining")
                     joinBattle();
-                }, 20000);
+                }, 13000);
                 //log("joining new battle");
             }
             gameOver = true;

@@ -402,7 +402,8 @@ const OFFSETS = {
     homePage_startGame: 0x8FF70C,
     setGameOverResult: 0x9559E0,
     normalGameStart: 0x907A24,
-    getHomeScreen: 0x9605E4
+    getHomeScreen: 0x9605E4,
+    getHomePage: 0x81E528
 };
 
 const natives = {
@@ -417,7 +418,8 @@ const natives = {
     homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
     normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer']),
     getHomeScreen: new NativeFunction(base.add(OFFSETS.getHomeScreen),'pointer',['pointer']),
-    homeModeGetInstance: new NativeFunction(base.add(OFFSETS.homeModeGetInstance),'pointer',[])
+    homeModeGetInstance: new NativeFunction(base.add(OFFSETS.homeModeGetInstance),'pointer',[]),
+    getHomePage: new NativeFunction(base.add(OFFSETS.getHomePage),'pointer',['pointer'])
 };
 
 let state = {
@@ -527,7 +529,8 @@ function main() {
                 on: () => {
                     var homeMode = natives.homeModeGetInstance();
                     var homeScreen = natives.getHomeScreen(homeMode);
-                    var eventdata = homeScreen.add(0x3f0);
+                    var homePage = natives.getHomePage(homeScreen);
+                    var eventdata = homePage.add(0x3f0);
                     log("test1: " + eventdata);
                     log("test2: " + startGameArgs);
                 }

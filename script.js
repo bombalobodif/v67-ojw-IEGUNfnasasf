@@ -492,12 +492,14 @@ function autoRejoin() {
         onEnter: function(args) {
             if(state.autojoin) {
                 setTimeout(function() {
+                    log("exiting")
                     exitBattle();
                 }, 6000);
                 setTimeout(function() {
+                    log("rejoining")
                     joinBattle();
-                }, 12000);
-                log("joining new battle");
+                }, 20000);
+                //log("joining new battle");
             }
             gameOver = true;
             log("game over");

@@ -1,34 +1,571 @@
-let logMessages = [];
-let globalMenu = null;
+// ─────────────────────────────────────────────────────────────────────────────
+//  OFFSETS
+// ─────────────────────────────────────────────────────────────────────────────
 
-function log(message) {
-    if (globalMenu) globalMenu.log(message);
+const base = Module.findBaseAddress("libg.so");
+
+const OFFSETS = Object.freeze({
+    // — battle —
+    BattleMode_getInstance:                        0x954EE0,
+    BattleMode_objectManagerPtr:                   0x28,
+    BattleMode_clientInputManager:                 0x58,
+    BattleMode__enter:                             0x956664,
+    setGameOverResult:                             0x9559E0,
+    normalGameStart:                               0x907A24,
+
+    // — battle screen —
+    GameScreen__getLogicBattle:                    0x818BCC,
+    BattleScreen_getInstance:                      0x80F4C8,
+    BattleScreen__update:                          0x56FA80,
+    BattleScreen__updateMovement:                  0x809348,
+    BattleScreen__updateAutoshoot:                 0x8076A0,
+    BattleScreen__stopWithStick:                   0x8015DC,
+    BattleScreen__handleTouchReleased:             0x80184C,
+    BattleScreen__tryToActivateSkill:              0x80D758,
+    BattleScreen_activateSkill:                    0x80274C,
+    BattleScreen_getClosestTargetForAutoshoot:     0x8151E0,
+    BattleScreen__calculateProjectilePath:         0x811C5C,
+    BattleScreen__joystickToWorld:                 0x815E84,
+    BattleScreen_manualFireX:                      0xF04,
+    BattleScreen_manualFireY:                      0xF08,
+    BattleScreen_autoFireX:                        0xE6C,
+    BattleScreen_autoFireY:                        0xE70,
+    BattleScreen_autoshootPredOff:                 0x66C,
+    BattleScreen_fireWrapperFn:                    0x802960,
+    BattleScreen_screenWidth:                      0x884,
+    BattleScreen_screenHeight:                     0x888,
+    BattleScreen_viewMatrix:                       0x7E8,
+    BattleScreen_spectateWidget:                   0x3C8,
+    BattleScreen_spectateTextField:                0x3D8,
+
+    // — logic battle mode client —
+    LogicBattleModeClient_update:                  0xB8EEE0,
+    LogicBattleModeClient_getOwnCharacter:         0xB90A28,
+    LogicBattleModeClient_getOwnPlayerTeam:        0xB90680,
+    LogicBattleModeClient_getOwnPlayerIndex:       0xB90678,
+    LogicBattleModeClient_setClientPredictionMoveTo: 0xB90B8C,
+    LogicBattleModeClient_getTileMap:              0xB909A8,
+    LogicBattleModeClient__LogicBattleModeClient:  0xB8E67C,
+    LogicBattleModeClient__setRandomSeed:          0xB8E878,
+    LogicBattleModeClient__setPlayerAvatar:        0xB8EDF0,
+
+    // — game object —
+    LogicGameObjectClient_getGlobalID:             0xAE49C8,
+    LogicGameObjectClient_getX:                    0xAE4A1C,
+    LogicGameObjectClient_getY:                    0xAE4A24,
+    LogicGameObjectClient_getData:                 0xAE46FC,
+    LogicGameObjectManagerClient__getGameObjects:  0xAE514C,
+    LogicGameObjectManagerClient__findGameObject:  0xAE802C,
+    ObjectManager_objectsArray:                    0x0,
+    ObjectManager_count:                           0xC,
+    ObjectManager_ptrStride:                       0x8,
+    GameObj_team:                                  0x40,
+    GameObj_deadFlag:                              0xD0,
+
+    // — character —
+    LogicCharacterClient__getWeaponSkill:          0xAB4418,
+    LogicCharacterClient__getCarryableData:        0xAB35D4,
+    LogicCharacterClient__getLinkedCarryable:      0xAB4728,
+    LogicCharacterClient__getCurrentActiveOrCastingSkill: 0xAB5028,
+    LogicCharacterData_getCollisionRadius:         0xA3B52C,
+    CharData_speed:                                0x1C4,
+    CharData_brawlerId:                            0x18,
+
+    // — projectile —
+    LogicProjectileData_getRadius:                 0xA8164C,
+    LogicProjectileData_getSpeed:                  0xA815CC,
+    LogicProjectileData__isBeam:                   0xA81770,
+    LogicProjectileData__getNumEarlyTicks:         0xA81A44,
+    Projectile_ctor:                               0x514F88,
+    Projectile__update:                            0x5158F8,
+    Projectile_spawnAngle:                         0xB8,
+    VTABLE_PROJECTILE_DATA:                        0x11501B0,
+    VTABLE_CHARACTER_DATA:                         0x44BF6F8,
+    getProjData:                                   0xB1D358,
+
+    // — tile map —
+    TileMap_Width:                                 0xC4,
+    TileMap_Height:                                0xC8,
+    TileMap_TilesArray:                            0x20,
+    TileTypeData_BlocksMovement:                   0x56,
+    TileTypeData_BlocksProjectiles:                0x57,
+    LogicTileMap__isPlayerLineOfSightClear:        0x9DF84C,
+    LogicTile__setData:                            0x9DA7E0,
+
+    // — client input —
+    ClientInput_constructor_int:                   0xB53A68,
+    ClientInputManager_addInput:                   0x79BF3C,
+    ClientInput_x:                                 0xC,
+    ClientInput_y:                                 0x10,
+    ClientInputMessage_sendMovement:               0x7C13DC,
+
+    // — GUI —
+    Gui_getInstance:                               0x591644,
+    Gui_showFloaterTextAtDefaultPos:               0x818CDC,
+    GUI__showFloaterTextAt:                        0x591F28,
+    GUI__showPopup:                                0x592C24,
+    GUI__getDefaultFloaterPos:                     0x591DA0,
+
+    // — string —
+    StringCtor:                                    0xDCF8F0,
+    TextField_setText:                             0xC4A978,
+    TextField_setText_ui:                          0x598298,
+    String__format:                                0xDD244C,
+    nativeCopyToClipboard:                         0xDD91F8,
+
+    // — home / navigation —
+    HomeMode__getInstance:                         0x95F488,
+    getHomeScreen:                                 0x9605E4,
+    getHomePage:                                   0x81E528,
+    homePage_startGame:                            0x8FF70C,
+    mapEditorScreen_sendGoHomeMessage:             0x82F928,
+    GameStateManager__getInstance:                 0x95DAE4,
+    GameStateManager__isState:                     0x95E7C0,
+
+    // — display / movie clip —
+    MovieClip__gotoAndStopFrameIndex:              0xC1C90C,
+    MovieClip__getTextFieldByName:                 0xC1D550,
+    MovieClip__setChildVisible:                    0xC1DD48,
+    DisplayObject__setXY:                          0xC16B4C,
+    DisplayObject__removeFromParent:               0xC16EA8,
+    Sprite__addChild:                              0xC2D8C4,
+    Sprite__addChildAt:                            0xC2D8CC,
+    Sprite__removeChild:                           0xC2DB9C,
+    Stage_addChild:                                0xC336A0,
+    StageInstanceGlobalPtr:                        0x12393E0,
+
+    // — skill —
+    LogicSkillData__getActiveTime:                 0xA940DC,
+    LogicSkillData__getRechargeTime:               0xA943C0,
+    LogicSkillData__getMaxCharge:                  0xA943D0,
+    LogicSkillData__getMsBetweenAttacks:           0xA943F8,
+
+    // — misc —
+    HeroData_namePtr:                              0x48,
+    Joy_currentX:                                  0x94,
+    Joy_currentY:                                  0x98,
+    Joy_centerX:                                   0x9C,
+    Joy_centerY:                                   0xA0,
+    Joy_isDragging:                                0x10,
+    Message_port:                                  0x90,
+    Message_ipPtr:                                 0x98,
+    ScString_length:                               0x4,
+    ScString_data:                                 0x8,
+    ScrollArea__scrollTo:                          0xBE15E8,
+    ScrollArea__updateBounds:                      0xC4FA78,
+    ScrollArea__addContent:                        0xC4FC78,
+    ScrollArea__removeAllContent:                  0xC4FCC8,
+    GameButtonCtor:                                0x597C48,
+    GameButton_setText:                            0x598298,
+    CustomButton_onButtonPressed:                  0xC4DFCC,
+    ResourceManager__getCSV:                       0xBEEA48,
+    ResourceListener__addFile:                     0xC9A180,
+    FramerateManager__setSegment:                  0xDDBDE0,
+    Screen__getHeight:                             0xDE21F4,
+    Screen__getDpiClass:                           0xDE2200,
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  NATIVES
+// ─────────────────────────────────────────────────────────────────────────────
+
+const malloc = new NativeFunction(Module.getExportByName("libc.so", "malloc"), "pointer", ["uint"]);
+
+// Lazy-inicializace – všechny NativeFunction objekty se vytvoří jednou při prvním volání
+let _n = null;
+function fns() {
+    if (_n) return _n;
+    _n = {
+        BattleMode_getInstance:
+            new NativeFunction(base.add(OFFSETS.BattleMode_getInstance),                        "pointer", []),
+        LogicGameObjectClient_getX:
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getX),                    "int32",   ["pointer"]),
+        LogicGameObjectClient_getY:
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getY),                    "int32",   ["pointer"]),
+        LogicBattleModeClient_getOwnCharacter:
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getOwnCharacter),         "pointer", ["pointer"]),
+        LogicBattleModeClient_setClientPredictionMoveTo:
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_setClientPredictionMoveTo),"void",   ["pointer","int","int","int"]),
+        LogicBattleModeClient_getTileMap:
+            new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getTileMap),              "pointer", ["pointer"]),
+        LogicGameObjectClient_getGlobalID:
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getGlobalID),             "uint32",  ["pointer"]),
+        LogicGameObjectClient_getData:
+            new NativeFunction(base.add(OFFSETS.LogicGameObjectClient_getData),                 "pointer", ["pointer"]),
+        LogicProjectileData_getSpeed:
+            new NativeFunction(base.add(OFFSETS.LogicProjectileData_getSpeed),                  "uint32",  ["pointer"]),
+        LogicProjectileData_getRadius:
+            new NativeFunction(base.add(OFFSETS.LogicProjectileData_getRadius),                 "uint32",  ["pointer"]),
+        LogicCharacterData_getCollisionRadius:
+            new NativeFunction(base.add(OFFSETS.LogicCharacterData_getCollisionRadius),         "uint32",  ["pointer"]),
+        BattleScreen_getLogicBattle:
+            new NativeFunction(base.add(OFFSETS.GameScreen__getLogicBattle),                    "pointer", ["pointer"]),
+        BattleScreen_getInstance:
+            new NativeFunction(base.add(OFFSETS.BattleScreen_getInstance),                      "pointer", []),
+        ClientInput_ctor:
+            new NativeFunction(base.add(OFFSETS.ClientInput_constructor_int),                   "pointer", ["pointer","int"]),
+        ClientInputManager_add:
+            new NativeFunction(base.add(OFFSETS.ClientInputManager_addInput),                   "void",    ["pointer","pointer"]),
+        Gui_getInstance:
+            new NativeFunction(base.add(OFFSETS.Gui_getInstance),                               "pointer", []),
+        Gui_showFloaterTextAtDefaultPos:
+            new NativeFunction(base.add(OFFSETS.Gui_showFloaterTextAtDefaultPos),               "void",    ["pointer","pointer","int","int"]),
+        StringCtor:
+            new NativeFunction(base.add(OFFSETS.StringCtor),                                    "pointer", ["pointer","pointer"]),
+        normalGameStart:
+            new NativeFunction(base.add(OFFSETS.normalGameStart),                               "void",    ["pointer"]),
+        getHomeScreen:
+            new NativeFunction(base.add(OFFSETS.getHomeScreen),                                 "pointer", ["pointer"]),
+        homeModeGetInstance:
+            new NativeFunction(base.add(OFFSETS.HomeMode__getInstance),                         "pointer", []),
+        getHomePage:
+            new NativeFunction(base.add(OFFSETS.getHomePage),                                   "pointer", ["pointer"]),
+        homePage_startGame:
+            new NativeFunction(base.add(OFFSETS.homePage_startGame),                            "void",    ["pointer","pointer","pointer","int","pointer","pointer","uint8","pointer","uint8"]),
+        guiCloseAllPopups:
+            new NativeFunction(base.add(OFFSETS.GUI__showPopup),                                "void",    ["pointer"]),
+        mapEditorScreen_sendGoHomeMessage:
+            new NativeFunction(base.add(OFFSETS.mapEditorScreen_sendGoHomeMessage),             "void",    ["pointer"]),
+    };
+    Object.freeze(_n);
+    return _n;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  WALL CACHE
+// ─────────────────────────────────────────────────────────────────────────────
+
+const FAST_RESCAN_MS  = 500;
+const FULL_REBUILD_MS = 15000;
+const TILE_SIZE       = 300;
+const BIT_MOVE        = 0x80;
+const BIT_PROJ        = 0x40;
+
+const wallCache = {
+    wall: null, w: 0, h: 0,
+    tilesPtr: null, destructibles: null,
+    gen: 0, lastFullBuild: 0, lastFastScan: 0,
+};
+
+function _readPacked(tilesArr, idx) {
+    const tile = tilesArr.add(idx * Process.pointerSize).readPointer();
+    if (tile.isNull()) return 0;
+    const ttype = tile.readPointer();
+    if (ttype.isNull()) return 0;
+    const flags = ttype.add(OFFSETS.TileTypeData_BlocksMovement).readU16();
+    return ((flags & 0xff) ? BIT_MOVE : 0) | ((flags >> 8 & 0xff) ? BIT_PROJ : 0);
+}
+
+function _fullRebuild(tm) {
+    if (!tm || tm.isNull()) return false;
+    const w = tm.add(OFFSETS.TileMap_Width).readS32();
+    const h = tm.add(OFFSETS.TileMap_Height).readS32();
+    if (w <= 0 || w > 120 || h <= 0 || h > 120) return false;
+    const tilesArr = tm.add(OFFSETS.TileMap_TilesArray).readPointer();
+    if (tilesArr.isNull()) return false;
+    const total = w * h;
+    if (total <= 0 || total > 14400) return false;
+
+    const wall = new Uint8Array(total);
+    const dest = [];
+    for (let i = 0; i < total; i++) {
+        const packed = _readPacked(tilesArr, i);
+        wall[i] = packed;
+        if (packed) dest.push(i);
+    }
+
+    const now = Date.now();
+    Object.assign(wallCache, { wall, w, h, tilesPtr: tilesArr, destructibles: dest,
+        gen: wallCache.gen + 1, lastFullBuild: now, lastFastScan: now });
+    return true;
+}
+
+function _fastRescan() {
+    const { wall, tilesPtr, destructibles } = wallCache;
+    if (!wall || !destructibles || !tilesPtr || tilesPtr.isNull()) return;
+    let changed = false, writeIdx = 0;
+    for (const i of destructibles) {
+        let packed = 0;
+        try { packed = _readPacked(tilesPtr, i); } catch (_) {}
+        if (wall[i] !== packed) { wall[i] = packed; changed = true; }
+        if (packed) destructibles[writeIdx++] = i;
+    }
+    if (writeIdx !== destructibles.length) { destructibles.length = writeIdx; changed = true; }
+    if (changed) wallCache.gen++;
+    wallCache.lastFastScan = Date.now();
+}
+
+function maybeRefreshWallCache(logic, now = Date.now()) {
+    if (!logic || logic.isNull()) return;
+    const rebuild = () => {
+        const tm = fns().LogicBattleModeClient_getTileMap(logic);
+        if (tm && !tm.isNull()) _fullRebuild(tm);
+    };
+    if (!wallCache.wall)                                          { rebuild(); return; }
+    if (now - wallCache.lastFullBuild >= FULL_REBUILD_MS)        { rebuild(); return; }
+    if (now - wallCache.lastFastScan  >= FAST_RESCAN_MS)         _fastRescan();
+}
+
+function losCheck(wx0, wy0, wx1, wy1, checkBit) {
+    const { wall, w, h } = wallCache;
+    if (!wall) return true;
+    let cx = (wx0 / TILE_SIZE) | 0, cy = (wy0 / TILE_SIZE) | 0;
+    const tx = (wx1 / TILE_SIZE) | 0, ty = (wy1 / TILE_SIZE) | 0;
+    if (cx === tx && cy === ty) return true;
+    const dx = Math.abs(tx - cx), dy = -Math.abs(ty - cy);
+    const sx = cx < tx ? 1 : -1, sy = cy < ty ? 1 : -1;
+    let err = dx + dy;
+    for (let n = 0, max = dx - dy + 2; n < max; n++) {
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; cx += sx; }
+        if (e2 <= dx) { err += dx; cy += sy; }
+        if (cx === tx && cy === ty) return true;
+        if (cx >= 0 && cx < w && cy >= 0 && cy < h && wall[cy * w + cx] & checkBit) return false;
+    }
+    return true;
+}
+
+function traceWallHit(wx, wy, dirX, dirY, maxDist, checkBit) {
+    const { wall, w, h } = wallCache;
+    if (!wall || maxDist <= 0 || w <= 0 || h <= 0) return maxDist;
+    const INV_T = 1 / TILE_SIZE;
+    for (let dist = 40; dist <= maxDist; dist = Math.min(dist + 40, maxDist)) {
+        const tx = ((wx + dirX * dist) * INV_T) | 0;
+        const ty = ((wy + dirY * dist) * INV_T) | 0;
+        if (tx < 0 || tx >= w || ty < 0 || ty >= h || wall[ty * w + tx] & checkBit)
+            return Math.max(0, dist - 75);
+        if (dist === maxDist) break;
+    }
+    return maxDist;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MOVEMENT
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Vrátí { logic, battle } nebo null – vždy čerstvě (ptry se mohou měnit)
+function getBattleContext() {
+    try {
+        const screen = fns().BattleScreen_getInstance();
+        if (!screen || screen.isNull()) return null;
+        const logic  = fns().BattleScreen_getLogicBattle(screen);
+        if (!logic  || logic.isNull())  return null;
+        const battle = fns().BattleMode_getInstance();
+        if (!battle || battle.isNull()) return null;
+        return { logic, battle };
+    } catch (_) { return null; }
+}
+
+// Vrátí { x, y } aktuální pozice vlastní postavy, nebo null
+function getMyPosition(logic) {
+    try {
+        const own = fns().LogicBattleModeClient_getOwnCharacter(logic);
+        if (!own || own.isNull()) return null;
+        return { x: fns().LogicGameObjectClient_getX(own), y: fns().LogicGameObjectClient_getY(own) };
+    } catch (_) { return null; }
+}
+
+// Pošle pohybový input na (wx, wy).
+// setClientPredictionMoveTo zajišťuje vizuálně plynulý pohyb na klientu.
+// ClientInput paket ho pak potvrdí na serveru.
+function sendMove(logic, battle, wx, wy) {
+    wx = wx | 0;
+    wy = wy | 0;
+    if (!isFinite(wx) || !isFinite(wy) || Math.abs(wx) > 200000 || Math.abs(wy) > 200000) return;
+    try {
+        // Okamžitá klientská predikce – vizuálně plynulý pohyb
+        fns().LogicBattleModeClient_setClientPredictionMoveTo(logic, wx, wy, 1);
+
+        // Síťový paket pro server
+        if (!battle || battle.isNull()) return;
+        const manager = battle.add(OFFSETS.BattleMode_clientInputManager).readPointer();
+        if (!manager || manager.isNull()) return;
+        const ci = malloc(64);
+        fns().ClientInput_ctor(ci, 2);
+        ci.add(OFFSETS.ClientInput_x).writeS32(wx);
+        ci.add(OFFSETS.ClientInput_y).writeS32(wy);
+        fns().ClientInputManager_add(manager, ci);
+    } catch (_) {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PATHFINDING  (A* na tile mřížce)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Vrátí pole [{x,y}] world souřadnic od startu k cíli, nebo null pokud cesta neexistuje.
+function pathfind(startWX, startWY, goalWX, goalWY) {
+    const { wall, w, h } = wallCache;
+    if (!wall || w === 0 || h === 0) return null;
+
+    const clamp = (v, max) => v < 0 ? 0 : v > max ? max : v;
+    const sx = clamp((startWX / TILE_SIZE) | 0, w - 1);
+    const sy = clamp((startWY / TILE_SIZE) | 0, h - 1);
+    const gx = clamp((goalWX  / TILE_SIZE) | 0, w - 1);
+    const gy = clamp((goalWY  / TILE_SIZE) | 0, h - 1);
+
+    if (sx === gx && sy === gy) return [{ x: goalWX, y: goalWY }];
+    if (wall[gy * w + gx] & BIT_MOVE) return null;   // cíl je zeď
+
+    const idx  = (x, y) => y * w + x;
+    const heur = (x, y) => Math.abs(x - gx) + Math.abs(y - gy);
+
+    const INF   = 0x7fffffff;
+    const gCost = new Int32Array(w * h).fill(INF);
+    const prev  = new Int32Array(w * h).fill(-1);
+
+    const open = [];   // min-heap (binární vyhledávání při insertu)
+    const push = (f, x, y) => {
+        let lo = 0, hi = open.length;
+        while (lo < hi) { const mid = (lo + hi) >> 1; open[mid].f <= f ? lo = mid + 1 : hi = mid; }
+        open.splice(lo, 0, { f, x, y });
+    };
+
+    gCost[idx(sx, sy)] = 0;
+    push(heur(sx, sy), sx, sy);
+
+    const DIRS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+    const COST = [10,  10,   10,   10,   14,   14,   14,    14  ];
+
+    while (open.length) {
+        const { x, y } = open.shift();
+        const ci = idx(x, y);
+        if (x === gx && y === gy) break;
+        for (let d = 0; d < 8; d++) {
+            const nx = x + DIRS[d][0], ny = y + DIRS[d][1];
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+            if (wall[idx(nx, ny)] & BIT_MOVE) continue;
+            // Diagonála: oba sousední tiles musí být volné (zabraňuje tunelování rohem)
+            if (d >= 4 && ((wall[idx(x, ny)] & BIT_MOVE) || (wall[idx(nx, y)] & BIT_MOVE))) continue;
+            const ng = gCost[ci] + COST[d];
+            const ni = idx(nx, ny);
+            if (ng >= gCost[ni]) continue;
+            gCost[ni] = ng;
+            prev[ni]  = ci;
+            push(ng + heur(nx, ny) * 10, nx, ny);
+        }
+    }
+
+    if (gCost[idx(gx, gy)] === INF) return null;
+
+    // Rekonstrukce: středy tilů + přesný cíl na konci
+    const path = [];
+    let ci = idx(gx, gy);
+    while (ci !== -1) {
+        path.push({ x: (ci % w) * TILE_SIZE + TILE_SIZE / 2, y: ((ci / w) | 0) * TILE_SIZE + TILE_SIZE / 2 });
+        ci = prev[ci];
+    }
+    path.reverse();
+    path[path.length - 1] = { x: goalWX, y: goalWY };
+    return path;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  WALKER  –  postupně prochází waypointy
+// ─────────────────────────────────────────────────────────────────────────────
+
+const walker = { active: false, path: null, stepIdx: 0, onDone: null, _iv: null };
+
+// startWalk(goalWX, goalWY, onDone?)
+// Spustí pathfinding a chůzi. Samo si zjistí battle context a pozici.
+// onDone(true/false) – zavolá se po dosažení cíle nebo při selhání.
+function startWalk(goalWX, goalWY, onDone = null) {
+    stopWalk();
+
+    const ctx = getBattleContext();
+    if (!ctx) { log("startWalk: nejsem ve hře"); onDone?.(false); return false; }
+
+    maybeRefreshWallCache(ctx.logic);
+
+    const pos = getMyPosition(ctx.logic);
+    if (!pos) { log("startWalk: nelze získat pozici"); onDone?.(false); return false; }
+
+    const path = pathfind(pos.x, pos.y, goalWX, goalWY);
+    if (!path) { log("startWalk: cesta nenalezena"); onDone?.(false); return false; }
+
+    walker.active  = true;
+    walker.path    = path;
+    walker.stepIdx = 0;
+    walker.onDone  = onDone;
+    log(`startWalk: ${path.length} wp → (${goalWX}, ${goalWY})`);
+
+    walker._iv = setInterval(() => {
+        if (!walker.active) { clearInterval(walker._iv); return; }
+        const c = getBattleContext();
+        if (!c) { stopWalk(); walker.onDone?.(false); return; }
+
+        const wp = walker.path[walker.stepIdx];
+        sendMove(c.logic, c.battle, wp.x, wp.y);
+
+        const p = getMyPosition(c.logic);
+        if (!p) return;
+        const dx = p.x - wp.x, dy = p.y - wp.y;
+        if (dx * dx + dy * dy < TILE_SIZE * TILE_SIZE) {
+            if (++walker.stepIdx >= walker.path.length) {
+                stopWalk();
+                log("startWalk: cíl dosažen");
+                walker.onDone?.(true);
+            }
+        }
+    }, 100);
+
+    return true;
+}
+
+function stopWalk() {
+    walker.active = false;
+    if (walker._iv) { clearInterval(walker._iv); walker._iv = null; }
+    walker.path = null; walker.stepIdx = 0; walker.onDone = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getStrPtr(str)    { return Memory.allocUtf8String(str); }
+function getScPtr(str)     { const p = malloc(40); fns().StringCtor(p, getStrPtr(str)); return p; }
+function showFloater(text) { fns().Gui_showFloaterTextAtDefaultPos(fns().Gui_getInstance(), getScPtr(text), 0, -1); }
+
+function getHomePage() {
+    return fns().getHomePage(fns().getHomeScreen(fns().homeModeGetInstance()));
+}
+
+function joinBattle() {
+    try { fns().normalGameStart(getHomePage()); }
+    catch (e) { log("joinBattle error: " + e); }
+}
+
+function exitBattle() {
+    const fake = Memory.alloc(0x901);
+    fake.writeByteArray(new Array(0x901).fill(0));
+    fns().mapEditorScreen_sendGoHomeMessage(fake);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ANDROID UI
+// ─────────────────────────────────────────────────────────────────────────────
 
 function getClassLoader() {
     return {
-        Gravity: Java.use("android.view.Gravity"),
-        TextView: Java.use("android.widget.TextView"),
-        LinearLayout: Java.use("android.widget.LinearLayout"),
-        LinearLayout_LayoutParams: Java.use("android.widget.LinearLayout$LayoutParams"),
-        FrameLayout: Java.use("android.widget.FrameLayout"),
-        FrameLayout_LayoutParams: Java.use("android.widget.FrameLayout$LayoutParams"),
-        Color: Java.use("android.graphics.Color"),
-        ActivityThread: Java.use("android.app.ActivityThread"),
+        Gravity:                             Java.use("android.view.Gravity"),
+        TextView:                            Java.use("android.widget.TextView"),
+        LinearLayout:                        Java.use("android.widget.LinearLayout"),
+        LinearLayout_LayoutParams:           Java.use("android.widget.LinearLayout$LayoutParams"),
+        FrameLayout:                         Java.use("android.widget.FrameLayout"),
+        FrameLayout_LayoutParams:            Java.use("android.widget.FrameLayout$LayoutParams"),
+        Color:                               Java.use("android.graphics.Color"),
+        ActivityThread:                      Java.use("android.app.ActivityThread"),
         ActivityThread_ActivityClientRecord: Java.use("android.app.ActivityThread$ActivityClientRecord"),
-        View_OnTouchListener: Java.use("android.view.View$OnTouchListener"),
-        View_OnClickListener: Java.use("android.view.View$OnClickListener"),
-        MotionEvent: Java.use("android.view.MotionEvent"),
-        String: Java.use("java.lang.String"),
-        ScrollView: Java.use("android.widget.ScrollView"),
-        Button: Java.use("android.widget.Button"),
-        GradientDrawable: Java.use("android.graphics.drawable.GradientDrawable"),
+        View_OnTouchListener:                Java.use("android.view.View$OnTouchListener"),
+        View_OnClickListener:                Java.use("android.view.View$OnClickListener"),
+        MotionEvent:                         Java.use("android.view.MotionEvent"),
+        String:                              Java.use("java.lang.String"),
+        ScrollView:                          Java.use("android.widget.ScrollView"),
+        Button:                              Java.use("android.widget.Button"),
+        GradientDrawable:                    Java.use("android.graphics.drawable.GradientDrawable"),
     };
 }
 
-function dp(context, value) {
-    return parseInt(value * context.getResources().getDisplayMetrics().density.value);
-}
+function dp(ctx, v) { return parseInt(v * ctx.getResources().getDisplayMetrics().density.value); }
 
 function getMainActivity(cl) {
     const thread = cl.ActivityThread.sCurrentActivityThread.value;
@@ -36,76 +573,80 @@ function getMainActivity(cl) {
     return record.activity.value;
 }
 
-function makeRoundedDrawable(cl, colorHex, radiusDp, activity) {
-    const drawable = cl.GradientDrawable.$new();
-    drawable.setShape(cl.GradientDrawable.RECTANGLE.value);
-    drawable.setColor(cl.Color.parseColor(colorHex));
-    drawable.setCornerRadius(dp(activity, radiusDp));
-    return drawable;
+function makeRoundedDrawable(cl, color, radius, activity) {
+    const d = cl.GradientDrawable.$new();
+    d.setShape(cl.GradientDrawable.RECTANGLE.value);
+    d.setColor(cl.Color.parseColor(color));
+    d.setCornerRadius(dp(activity, radius));
+    return d;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  MENU
+// ─────────────────────────────────────────────────────────────────────────────
+
+let logMessages = [];
+let globalMenu  = null;
+function log(msg) { if (globalMenu) globalMenu.log(msg); }
 
 class Menu {
     #cl; #activity; #MATCH; #WRAP;
     #contentView; #mainLayout; #menuLayout; #scrollLayout;
-    #isOpen = false; #openBtn; #colorOn; #colorOff;
-    #logOverlay; #logTextView; #logScrollView;
+    #openBtn; #logOverlay; #logTextView; #logScrollView;
+    #isOpen = false; #colorOn; #colorOff;
 
     constructor(cl, activity) {
-        this.#cl = cl;
+        this.#cl       = cl;
         this.#activity = activity;
-        this.#MATCH = cl.LinearLayout_LayoutParams.MATCH_PARENT.value;
-        this.#WRAP = cl.LinearLayout_LayoutParams.WRAP_CONTENT.value;
+        this.#MATCH    = cl.LinearLayout_LayoutParams.MATCH_PARENT.value;
+        this.#WRAP     = cl.LinearLayout_LayoutParams.WRAP_CONTENT.value;
         this.#build();
     }
 
-    #build() {
-        // Fullscreen overlay
-        this.#contentView = this.#cl.FrameLayout.$new(this.#activity);
-        const fp = this.#cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-        this.#contentView.setLayoutParams(fp);
-        this.#contentView.setBackgroundColor(this.#cl.Color.TRANSPARENT.value);
+    #ctx() { return { cl: this.#cl, activity: this.#activity }; }
 
-        // Floating container
-        this.#mainLayout = this.#cl.LinearLayout.$new(this.#activity);
+    #build() {
+        const { cl, activity } = this.#ctx();
+
+        this.#contentView = cl.FrameLayout.$new(activity);
+        this.#contentView.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
+        this.#contentView.setBackgroundColor(cl.Color.TRANSPARENT.value);
+
+        this.#mainLayout = cl.LinearLayout.$new(activity);
         this.#mainLayout.setOrientation(this.#mainLayout.VERTICAL.value);
-        const mainFrame = this.#cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
-        mainFrame.gravity = this.#cl.Gravity.TOP.value | this.#cl.Gravity.START.value;
-        mainFrame.setMargins(dp(this.#activity, 16), dp(this.#activity, 60), 0, 0);
+        const mainFrame = cl.FrameLayout_LayoutParams.$new(this.#WRAP, this.#WRAP);
+        mainFrame.gravity = cl.Gravity.TOP.value | cl.Gravity.START.value;
+        mainFrame.setMargins(dp(activity, 16), dp(activity, 60), 0, 0);
         this.#mainLayout.setLayoutParams(mainFrame);
 
-        // Open/close tlačítko
-        this.#openBtn = this.#cl.Button.$new(this.#activity);
-        const bp = this.#cl.LinearLayout_LayoutParams.$new(dp(this.#activity, 56), dp(this.#activity, 56));
-        this.#openBtn.setLayoutParams(bp);
-        this.#openBtn.setText(this.#cl.String.$new("☰"));
-        this.#openBtn.setTextColor(this.#cl.Color.parseColor("#FFFFFF"));
-        this.#openBtn.setBackground(makeRoundedDrawable(this.#cl, "#635985", 16, this.#activity));
+        this.#openBtn = cl.Button.$new(activity);
+        this.#openBtn.setLayoutParams(cl.LinearLayout_LayoutParams.$new(dp(activity, 56), dp(activity, 56)));
+        this.#openBtn.setText(cl.String.$new("☰"));
+        this.#openBtn.setTextColor(cl.Color.parseColor("#FFFFFF"));
+        this.#openBtn.setBackground(makeRoundedDrawable(cl, "#635985", 16, activity));
 
-        // Menu panel
-        this.#menuLayout = this.#cl.LinearLayout.$new(this.#activity);
-        const mlp = this.#cl.LinearLayout_LayoutParams.$new(dp(this.#activity, 220), this.#WRAP);
-        mlp.setMargins(0, dp(this.#activity, 8), 0, 0);
+        this.#menuLayout = cl.LinearLayout.$new(activity);
+        const mlp = cl.LinearLayout_LayoutParams.$new(dp(activity, 220), this.#WRAP);
+        mlp.setMargins(0, dp(activity, 8), 0, 0);
         this.#menuLayout.setLayoutParams(mlp);
         this.#menuLayout.setOrientation(this.#menuLayout.VERTICAL.value);
-        this.#menuLayout.setBackground(makeRoundedDrawable(this.#cl, "#18122B", 20, this.#activity));
-        const pad = dp(this.#activity, 12);
+        this.#menuLayout.setBackground(makeRoundedDrawable(cl, "#18122B", 20, activity));
+        const pad = dp(activity, 12);
         this.#menuLayout.setPadding(pad, pad, pad, pad);
         this.#menuLayout.setVisibility(0x8);
 
-        // ScrollView uvnitř menu
-        const scroll = this.#cl.ScrollView.$new(this.#activity);
-        scroll.setLayoutParams(this.#cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
-        this.#scrollLayout = this.#cl.LinearLayout.$new(this.#activity);
-        this.#scrollLayout.setLayoutParams(this.#cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+        const scroll = cl.ScrollView.$new(activity);
+        scroll.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
+        this.#scrollLayout = cl.LinearLayout.$new(activity);
+        this.#scrollLayout.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
         this.#scrollLayout.setOrientation(this.#scrollLayout.VERTICAL.value);
         scroll.addView(this.#scrollLayout);
         this.#menuLayout.addView(scroll);
 
-        // Toggle menu
         const that = this;
         const ToggleListener = Java.registerClass({
             name: "com.example.MenuToggle",
-            implements: [this.#cl.View_OnClickListener],
+            implements: [cl.View_OnClickListener],
             methods: {
                 onClick(v) {
                     that.#isOpen = !that.#isOpen;
@@ -114,25 +655,20 @@ class Menu {
             }
         });
         this.#openBtn.setOnClickListener(ToggleListener.$new());
-
         this.#addDrag();
         this.#buildLogOverlay();
     }
 
     #buildLogOverlay() {
-        const cl = this.#cl;
-        const activity = this.#activity;
+        const { cl, activity } = this.#ctx();
 
-        // Poloprůhledné pozadí
         this.#logOverlay = cl.FrameLayout.$new(activity);
-        const olp = cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-        this.#logOverlay.setLayoutParams(olp);
+        this.#logOverlay.setLayoutParams(cl.FrameLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
         this.#logOverlay.setBackgroundColor(cl.Color.parseColor("#AA000000"));
         this.#logOverlay.setVisibility(0x8);
 
-        // Karta logu
         const card = cl.LinearLayout.$new(activity);
-        const clp = cl.FrameLayout_LayoutParams.$new(dp(activity, 320), dp(activity, 420));
+        const clp  = cl.FrameLayout_LayoutParams.$new(dp(activity, 320), dp(activity, 420));
         clp.gravity = cl.Gravity.CENTER.value;
         card.setLayoutParams(clp);
         card.setOrientation(card.VERTICAL.value);
@@ -140,8 +676,7 @@ class Menu {
         const cp = dp(activity, 16);
         card.setPadding(cp, cp, cp, cp);
 
-        // Nadpis
-        const title = cl.TextView.$new(activity);
+        const title   = cl.TextView.$new(activity);
         const titleLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
         titleLp.setMargins(0, 0, 0, dp(activity, 12));
         title.setLayoutParams(titleLp);
@@ -150,31 +685,19 @@ class Menu {
         title.setTextSize(18);
         title.setGravity(cl.Gravity.CENTER.value);
 
-        // ScrollView pro logy
         this.#logScrollView = cl.ScrollView.$new(activity);
-        //const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, 0);
-        //slp.weight = 1;
-
-        const slp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 260));
-        this.#logScrollView.setLayoutParams(slp);
-
-        this.#logScrollView.setLayoutParams(slp);
+        this.#logScrollView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, dp(activity, 260)));
         this.#logScrollView.setBackground(makeRoundedDrawable(cl, "#0D0A1A", 16, activity));
         const sp = dp(activity, 10);
         this.#logScrollView.setPadding(sp, sp, sp, sp);
 
-        //this.#logTextView = cl.TextView.$new(activity);
-        //this.#logTextView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP));
         this.#logTextView = cl.TextView.$new(activity);
-        const tvLp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#MATCH);
-        this.#logTextView.setLayoutParams(tvLp);
+        this.#logTextView.setLayoutParams(cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#MATCH));
         this.#logTextView.setMinHeight(dp(activity, 200));
-
         this.#logTextView.setTextColor(cl.Color.parseColor("#AAFFAA"));
         this.#logTextView.setTextSize(13);
         this.#logScrollView.addView(this.#logTextView);
 
-        // Zavírací tlačítko
         const closeBtn = cl.Button.$new(activity);
         const cbp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
         cbp.setMargins(0, dp(activity, 12), 0, 0);
@@ -187,11 +710,7 @@ class Menu {
         const CloseListener = Java.registerClass({
             name: "com.example.LogClose",
             implements: [cl.View_OnClickListener],
-            methods: {
-                onClick(v) {
-                    that.#logOverlay.setVisibility(0x8);
-                }
-            }
+            methods: { onClick(v) { that.#logOverlay.setVisibility(0x8); } }
         });
         closeBtn.setOnClickListener(CloseListener.$new());
 
@@ -204,7 +723,6 @@ class Menu {
     #addDrag() {
         const cl = this.#cl;
         let ix = 0, iy = 0, t0 = 0;
-
         const DragListener = Java.registerClass({
             name: "com.example.MenuDrag",
             implements: [cl.View_OnTouchListener],
@@ -230,27 +748,22 @@ class Menu {
         this.#mainLayout.setOnTouchListener(DragListener.$new());
     }
 
-    setColors(colorOn, colorOff) {
-        this.#colorOn = colorOn;
-        this.#colorOff = colorOff;
-    }
+    setColors(colorOn, colorOff) { this.#colorOn = colorOn; this.#colorOff = colorOff; }
 
     addButton(id, label, callbacks, defaultOn = false) {
-        const cl = this.#cl;
-        const activity = this.#activity;
-        const colorOn = this.#colorOn;
-        const colorOff = this.#colorOff;
-
+        const { cl, activity } = this.#ctx();
         const btn = cl.Button.$new(activity);
-        const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+        const lp  = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
         lp.setMargins(0, 0, 0, dp(activity, 8));
         btn.setLayoutParams(lp);
         btn.setText(cl.String.$new(label));
         btn.setTextColor(cl.Color.parseColor("#FFFFFF"));
 
         let state = defaultOn;
+        const colorOn  = this.#colorOn;
+        const colorOff = this.#colorOff;
         btn.setBackground(makeRoundedDrawable(cl, state ? colorOn : colorOff, 12, activity));
-        if (defaultOn) callbacks.on();
+        if (defaultOn) callbacks.on?.();
 
         const ClickListener = Java.registerClass({
             name: "com.example.BtnClick" + id,
@@ -259,7 +772,7 @@ class Menu {
                 onClick(v) {
                     state = !state;
                     v.setBackground(makeRoundedDrawable(cl, state ? colorOn : colorOff, 12, activity));
-                    state ? callbacks.on() : callbacks.off();
+                    state ? callbacks.on?.() : callbacks.off?.();
                 }
             }
         });
@@ -268,11 +781,9 @@ class Menu {
     }
 
     addLogButton() {
-        const cl = this.#cl;
-        const activity = this.#activity;
-
+        const { cl, activity } = this.#ctx();
         const btn = cl.Button.$new(activity);
-        const lp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
+        const lp  = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
         lp.setMargins(0, 0, 0, dp(activity, 8));
         btn.setLayoutParams(lp);
         btn.setText(cl.String.$new("📋  Log"));
@@ -295,43 +806,21 @@ class Menu {
     }
 
     log(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        logMessages.push(`[${timestamp}] ${message}`);
-
-        const MAX_LOG_MESSAGES = 20;
-        if (logMessages.length > MAX_LOG_MESSAGES) {
-            logMessages.splice(0, logMessages.length - MAX_LOG_MESSAGES);
-        }
-
-        const tv = this.#logTextView;
-        const cl = this.#cl;
+        logMessages.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+        if (logMessages.length > 20) logMessages.splice(0, logMessages.length - 20);
+        const tv = this.#logTextView, sv = this.#logScrollView;
         if (!tv) return;
+        const cl = this.#cl;
         Java.scheduleOnMainThread(() => {
-            try {
-                const text = logMessages.join('\n');
-                tv.setText(cl.String.$new(text));
-                const sv = this.#logScrollView;
-                if (sv) sv.fullScroll(0x00000082);
-            } catch(e) {}
-        });
-    }
-
-    logaas(message) {
-        const timestamp = new Date().toLocaleTimeString();
-        logMessages.push(`[${timestamp}] ${message}`);
-        Java.scheduleOnMainThread(() => {
-            this.updateLogView();
+            try { tv.setText(cl.String.$new(logMessages.join('\n'))); sv?.fullScroll(0x82); } catch (_) {}
         });
     }
 
     updateLogView() {
         if (!this.#logTextView) return;
-        const tv = this.#logTextView;
         const cl = this.#cl;
-        const sv = this.#logScrollView;
-        const text = logMessages.length > 0 ? logMessages.join('\n') : "(žádné logy)";
-        tv.setText(cl.String.$new(text));
-        if (sv) sv.fullScroll(0x00000082);
+        this.#logTextView.setText(cl.String.$new(logMessages.length ? logMessages.join('\n') : "(žádné logy)"));
+        this.#logScrollView?.fullScroll(0x82);
     }
 
     start() {
@@ -343,231 +832,86 @@ class Menu {
     }
 }
 
-const base = Module.findBaseAddress("libg.so");
-const malloc = new NativeFunction(Module.getExportByName("libc.so", "malloc"), "pointer", ["uint"]);
+// ─────────────────────────────────────────────────────────────────────────────
+//  GAME LOGIC
+// ─────────────────────────────────────────────────────────────────────────────
 
-const OFFSETS = {
-    askForBattleEndMessageAddHero: 0xB57338,
-    battleMode_getInstance: 0x954EE0,
-    battleModeUpdate: 0x95CD14,
-    battleScreen_activateSkill: 0x80274C,
-    battleScreen_getClosestTargetForAutoshoot: 0x8151E0,
-    billingManagerCheckCancelledPurchases: 0x4D3F7C,
-    clientInput_constructor_int: 0xB53A68,
-    clientInputManager_addInput: 0x79BF3C,
-    clientInputManagerUpdate: 0x79C158,
-    collisionResolver: 0x815E84,
-    combatHUDsetPlayerNameToPortrait: 0x5E5FF8,
-    combatHUDstartGameOver: 0x56E34C,
-    decoratedTextFieldsetupPlayerNameText: 0x58E52C,
-    gadget: 0x56EC64,
-    getString: 0x96D610,
-    getTile: 0x9DC190,
-    gotoAndStop: 0xC1CA84,
-    gotoAndStopFrameIndex: 0xC1C90C,
-    gui_showFloaterTextAtDefaultPos: 0x818CDC,
-    guiUpdate: 0x5916C8,
-    guiGetInstance: 0x591644,
-    homeModeGetInstance: 0x95F488,
-    hypercharge: 0x56ECA4,
-    intigerSQRT: 0xC67000,
-    joystickToMove: 0x8015DC,
-    logicBattleModeClient_getOwnCharacter: 0xB90A28,
-    logicBattleModeClient_update: 0xB8EEE0,
-    logicCharacterClient: 0xAB0D50,
-    logicCharacterClientDestruct: 0xAB128C,
-    logicDataTableCreateItem: 0xA4F29C,
-    logicDataToString: 0xA4B4E0,
-    logicGameObjectClient_getGlobalID: 0xAE49C8,
-    logicGameObjectClient_getX: 0xAE4A1C,
-    logicGameObjectClient_getY: 0xAE4A24,
-    logicGameObjectClientDestruct: 0xAE491C,
-    logicPlayerGetName: 0xBAD8B8,
-    logicProjectileDataCreateReferences: 0xB1D610,
-    logicProjectileDataDestruct: 0xA7D534,
-    maybeDrawsUltiUseCircle: 0x585098,
-    maybeVector2: 0xB1C844,
-    prepareIntroSetBrawler: 0x5E51BC,
-    raycast: 0xBD55E8,
-    setDecoratedText: 0x58E824,
-    setTextAndScaleIfNecessary: 0x990CA8,
-    showFloaterTextAt: 0x591F28,
-    showSpray: 0x56F834,
-    someGuiShit: 0x55DD98,
-    stringCopyCtor: 0xDCF970,
-    stringCtor: 0xDCF8F0,
-    stringTableGetString: 0x96D7B0,
-    stringString: 0xDCF7E0,
-    updateAutoshoot: 0x8076A0,
-    homePage_startGame: 0x8FF70C,
-    setGameOverResult: 0x9559E0,
-    normalGameStart: 0x907A24,
-    getHomeScreen: 0x9605E4,
-    getHomePage: 0x81E528,
-    guiCloseAllPopups: 0x59361C,
-    mapEditorScreen_sendGoHomeMessage: 0x82F928
-};
-
-const natives = {
-    BattleMode_getInstance: new NativeFunction(base.add(OFFSETS.battleMode_getInstance), "pointer", []),
-    LogicGameObjectClient_getX: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getX), "uint32", ["pointer"]),
-    LogicGameObjectClient_getY: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getY), "uint32", ["pointer"]),
-    LogicBattleModeClient_getOwnCharacter: new NativeFunction(base.add(OFFSETS.logicBattleModeClient_getOwnCharacter), "pointer", ["pointer"]),
-    Gui_getInstance: new NativeFunction(base.add(OFFSETS.guiGetInstance), "pointer", []),
-    StringCtor: new NativeFunction(base.add(OFFSETS.stringCtor), "pointer", ["pointer", "pointer"]),
-    Gui_showFloaterTextAtDefaultPos: new NativeFunction(base.add(OFFSETS.gui_showFloaterTextAtDefaultPos), "void", ["pointer", "pointer", "int", "int"]),
-    LogicGameObjectClient_getGlobalID: new NativeFunction(base.add(OFFSETS.logicGameObjectClient_getGlobalID), "uint32", ["pointer"]),
-    homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame),'void',['pointer', 'pointer', 'pointer', 'int', 'pointer', 'pointer', 'uint8', 'pointer', 'uint8']),
-    normalGameStart: new NativeFunction(base.add(OFFSETS.normalGameStart),'void',['pointer']),
-    getHomeScreen: new NativeFunction(base.add(OFFSETS.getHomeScreen),'pointer',['pointer']),
-    homeModeGetInstance: new NativeFunction(base.add(OFFSETS.homeModeGetInstance),'pointer',[]),
-    getHomePage: new NativeFunction(base.add(OFFSETS.getHomePage),'pointer',['pointer']),
-    guiCloseAllPopups: new NativeFunction(base.add(OFFSETS.guiCloseAllPopups),'void',['pointer']),
-    mapEditorScreen_sendGoHomeMessage: new NativeFunction(base.add(OFFSETS.mapEditorScreen_sendGoHomeMessage),'void',['pointer'])
-};
-
-let state = {
-    autojoin: false,
-    replace: false
-}
-
-const getinstance = natives.Gui_getInstance;
-const stringctor = natives.StringCtor;
-const floater = natives.Gui_showFloaterTextAtDefaultPos;
-
-function getStrPtr(str) {
-    return Memory.allocUtf8String(str);
-}
-
-function getScPtr(str) {
-    var pointer = malloc(40);
-    stringctor(pointer, getStrPtr(str)); 
-    return pointer;
-}
-
-function showFloater(text) {
-    floater(getinstance(), getScPtr(text), 0, -1);
-}
-
-
-let startGameArgs = null;
+const state = { autojoin: false };
 let gameOver = true;
 
-function startGameTest() {
-    Interceptor.attach(base.add(0x8FF70C), {
-        onEnter: function(args) {
-        }
-    });
-}
-
-function exitBattle() {
-    const size = 0x901;
-    const fakeObject = Memory.alloc(size);
-    fakeObject.writeByteArray(new Array(size).fill(0));
-
-    natives.mapEditorScreen_sendGoHomeMessage(fakeObject);
-}
-
-function joinBattle() {
-    try {
-        var homeMode = natives.homeModeGetInstance();
-        var homeScreen = natives.getHomeScreen(homeMode);
-        var homePage = natives.getHomePage(homeScreen);
-
-        natives.normalGameStart(homePage);
-    } catch (e) {
-        log("Error: " + e);
-    }
-}
-
-function autoRejoin() {
+function hookGameEvents() {
     Interceptor.attach(base.add(OFFSETS.normalGameStart), {
-        onEnter: function(args) {
-            log("new game");
-            gameOver = false;
-        }
+        onEnter() { log("new game"); gameOver = false; }
     });
 
     Interceptor.attach(base.add(OFFSETS.setGameOverResult), {
-        onEnter: function(args) {
-            if(state.autojoin) {
-                setTimeout(function() {
-                    log("exiting")
-                    exitBattle();
-                }, 5000);
-                setTimeout(function() {
-                    log("rejoining")
-                    joinBattle();
-                }, 13000);
-                //log("joining new battle");
-            }
+        onEnter() {
             gameOver = true;
             log("game over");
+            if (!state.autojoin) return;
+            setTimeout(() => { log("exiting");   exitBattle(); },  6000);
+            setTimeout(() => { log("rejoining"); joinBattle();  }, 20000);
         }
     });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  ENTRY POINT
+// ─────────────────────────────────────────────────────────────────────────────
+
 function main() {
-    startGameTest();
-    autoRejoin();
+    hookGameEvents();
 
     Java.perform(() => {
         Java.scheduleOnMainThread(() => {
-            const cl = getClassLoader();
+            const cl       = getClassLoader();
             const activity = getMainActivity(cl);
-            const menu = new Menu(cl, activity);
-            globalMenu = menu;
+            const menu     = new Menu(cl, activity);
+            globalMenu     = menu;
 
             menu.setColors("#82da48", "#406e36");
 
             menu.addButton("auto_rejoin", "Auto Rejoin", {
-                on: () => { state.autojoin = true; },
-                off: () => { state.autojoin = false; }
+                on:  () => { state.autojoin = true;  },
+                off: () => { state.autojoin = false; },
             });
 
-            menu.addButton("replace", "replace", {
+            menu.addButton("replace", "Replace", {
                 on: () => {
-                    var homeMode = natives.homeModeGetInstance();
-                    var homeScreen = natives.getHomeScreen(homeMode);
-                    var homePage = natives.getHomePage(homeScreen);
-                    var characterCount  = homePage.add(0x40c).readS32();
-                    var teammateCount = characterCount - 1;
-                    var characters = homePage.add(0x400).readPointer();
-                    var ownCharacter = characters.readPointer();
-                    var eventdata = homePage.add(0x3f0).readPointer();
-
                     try {
-                        var teamArray = ptr(0);
+                        const homePage       = getHomePage();
+                        const characterCount = homePage.add(0x40c).readS32();
+                        const characters     = homePage.add(0x400).readPointer();
+                        const ownCharacter   = characters.readPointer();
+                        const eventdata      = homePage.add(0x3f0).readPointer();
+                        const teammateCount  = characterCount - 1;
+
+                        let teamArray = ptr(0);
                         if (teammateCount > 0) {
-                            var dataBuf = Memory.alloc(0x8 * teammateCount);
-
-                            for (var i = 0; i < teammateCount; i++) {
-                                var p = characters.add((i + 1) * 0x8).readPointer();
-                                dataBuf.add(i * 0x8).writePointer(p);
-                            }
-
-                            var header = Memory.alloc(0x10);
-                            header.writePointer(dataBuf);   
+                            const dataBuf = Memory.alloc(0x8 * teammateCount);
+                            for (let i = 0; i < teammateCount; i++)
+                                dataBuf.add(i * 0x8).writePointer(characters.add((i + 1) * 0x8).readPointer());
+                            const header = Memory.alloc(0x10);
+                            header.writePointer(dataBuf);
                             header.add(0x08).writeS32(teammateCount);
                             header.add(0x0c).writeS32(teammateCount);
                             teamArray = header;
                         }
-                        natives.homePage_startGame(homePage,eventdata,ptr(0),1,ownCharacter,teamArray,0,ptr(0),1);
-                    } catch (e) {
-                        log("Error: " + e);
-                    }
+                        fns().homePage_startGame(homePage, eventdata, ptr(0), 1, ownCharacter, teamArray, 0, ptr(0), 1);
+                    } catch (e) { log("replace error: " + e); }
                 }
             });
 
-            menu.addButton("test", "test", {
-                on: () => {
-                    joinBattle();
-                    log("exited");
-                }
+            menu.addButton("test", "Test join", {
+                on: () => { joinBattle(); log("joined"); }
+            });
+
+            menu.addButton("pathfind_test", "Pathfind test", {
+                on:  () => startWalk(9150, 9150, ok => log("pathfind: " + (ok ? "OK" : "selhalo"))),
+                off: () => { stopWalk(); log("pathfind zastaven"); }
             });
 
             menu.addLogButton();
-
             menu.start();
         });
     });

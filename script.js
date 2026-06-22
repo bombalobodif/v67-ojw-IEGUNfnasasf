@@ -134,7 +134,8 @@ var OFFSETS = Object.freeze({
   Screen__getDpiClass: 14557696,
   LogicGameModeUtil__isTileOnPoisonArea: 12402696,
   TileCodeDAT: 18387576,
-  CSVRow__getValueAt: 12965516
+  CSVRow__getValueAt: 12965516,
+  LogicBattleModeClient_getPredictedTick: 12119744
 });
 
 // agent/core/natives.js
@@ -174,7 +175,8 @@ function fns() {
     guiCloseAllPopups: new NativeFunction(base.add(OFFSETS.GUI__showPopup), "void", ["pointer"]),
     mapEditorScreen_sendGoHomeMessage: new NativeFunction(base.add(OFFSETS.mapEditorScreen_sendGoHomeMessage), "void", ["pointer"]),
     LogicGameModeUtil__isTileOnPoisonArea: new NativeFunction(base.add(OFFSETS.LogicGameModeUtil__isTileOnPoisonArea), "uint32", ["pointer", "int", "int", "uint8", "int", "int"]),
-    CSVRow__getValueAt: new NativeFunction(base.add(OFFSETS.CSVRow__getValueAt), "pointer", ["pointer", "int"])
+    CSVRow__getValueAt: new NativeFunction(base.add(OFFSETS.CSVRow__getValueAt), "pointer", ["pointer", "int"]),
+    LogicBattleModeClient_getPredictedTick: new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getPredictedTick), "int32", ["pointer"])
   };
   Object.freeze(_cache);
   return _cache;
@@ -374,11 +376,20 @@ function handleObjects(objects, count, ownTeamId) {
 }
 
 // agent/world/poisonZone.js
+function isTileOnPoisonArea(tileX, tileY, gameState, tick, width, height) {
+  const poisonWidth = fns().LogicGameModeUtil__isTileOnPoisonArea(gameState, tick, 0, width, height);
+  const poisonHeight = fns().LogicGameModeUtil__isTileOnPoisonArea(gameState, tick, 1, width, height);
+  const isInPoisonX = tileX < poisonWidth || tileX >= width - poisonWidth;
+  const isInPoisonY = tileY < poisonHeight || tileY >= height - poisonHeight;
+  return isInPoisonX || isInPoisonY;
+}
 function isTileInPoison(tx, ty) {
   const { wall, w, h } = wallCache;
-  if (!wall) return false;
-  if (tx < 0 || tx >= w || ty < 0 || ty >= h) return false;
-  return !!(wall[ty * w + tx] & BIT_X);
+  const battleMode = fns().BattleMode_getInstance();
+  const state1 = battleMode.add(40).readPointer();
+  const state2 = state1.add(296).readPointer();
+  const tick = fns().LogicBattleModeClient_getPredictedTick(state1).readS32();
+  return isTileOnPoisonArea(tx, ty, state2, tick, w, h);
 }
 function isPosInPoison(wx, wy) {
   return isTileInPoison(wx / TILE_SIZE | 0, wy / TILE_SIZE | 0);

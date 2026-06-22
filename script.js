@@ -458,6 +458,10 @@ function tileDangerCost(tx, ty) {
 }
 var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 var COST = [10, 10, 10, 10, 14, 14, 14, 14];
+
+// FIX: binary-search insert now inserts ASCENDING by f so shift() pops the LOWEST f node.
+// Original bug: condition `open[mid].f <= f` pushed lo past the correct slot,
+// causing the array to be sorted descending → shift() always expanded the WORST node first.
 function pathfind(startWX, startWY, goalWX, goalWY) {
   const { wall, w, h } = wallCache;
   if (!wall || w === 0 || h === 0) return null;
@@ -474,14 +478,17 @@ function pathfind(startWX, startWY, goalWX, goalWY) {
   const gCost = new Int32Array(w * h).fill(INF);
   const prev = new Int32Array(w * h).fill(-1);
   const open = [];
+
+  // FIX: insert ascending (lowest f at front) so shift() pops the best node.
   const push = (f, x, y) => {
     let lo = 0, hi = open.length;
     while (lo < hi) {
       const mid = lo + hi >> 1;
-      open[mid].f <= f ? lo = mid + 1 : hi = mid;
+      open[mid].f < f ? lo = mid + 1 : hi = mid;  // was: <= which caused descending order
     }
     open.splice(lo, 0, { f, x, y });
   };
+
   gCost[idx(sx, sy)] = 0;
   push(heur(sx, sy), sx, sy);
   while (open.length) {
@@ -556,14 +563,17 @@ function startWalk(goalWX, goalWY, onDone = null) {
     }
     const wp = walker.path[walker.stepIdx];
     sendMove(c.logic, c.battle, wp.x, wp.y);
-    _log?.(`walk step ${walker.stepIdx}/${walker.path.length} → (${wp.x|0}, ${wp.y|0}) pos=(${p?.x|0}, ${p?.y|0})`);
+    // FIX: get position BEFORE logging so p is defined when used in log string
     const p = getMyPosition(c.logic);
+    _log?.(`walk step ${walker.stepIdx}/${walker.path.length} → (${wp.x|0}, ${wp.y|0}) pos=(${p?.x|0}, ${p?.y|0})`);
     if (!p) return;
     const dx = p.x - wp.x, dy = p.y - wp.y;
     if (dx * dx + dy * dy < TILE_SIZE * TILE_SIZE) {
       if (++walker.stepIdx >= walker.path.length) {
+        // FIX: save callback before stopWalk() clears walker.onDone
+        const cb = walker.onDone;
         stopWalk();
-        walker.onDone?.(true);
+        cb?.(true);
       }
     }
   }, 100);
@@ -638,7 +648,7 @@ function _aiTick() {
       aiState.mode = "escape_poison";
       stopWalk();
       const safe = _pickSafePoint(pos.x, pos.y);
-      _log?.(`AI: poison! \u2192 (${safe.x | 0}, ${safe.y | 0})`);
+      _log?.(`AI: poison! → (${safe.x | 0}, ${safe.y | 0})`);
       startWalk(safe.x, safe.y);
     }
     return;
@@ -673,7 +683,7 @@ function _aiTick() {
     aiState.mode = "roam";
     const pt = _pickRoamPoint(pos.x, pos.y, false);
     if (pt) {
-      _log?.(`AI: roam \u2192 (${pt.x | 0}, ${pt.y | 0})`);
+      _log?.(`AI: roam → (${pt.x | 0}, ${pt.y | 0})`);
       startWalk(pt.x, pt.y, () => {
         aiState.mode = "idle";
       });
@@ -901,7 +911,7 @@ var Menu = class {
     const cbp = cl.LinearLayout_LayoutParams.$new(this.#MATCH, this.#WRAP);
     cbp.setMargins(0, dp(activity, 12), 0, 0);
     closeBtn.setLayoutParams(cbp);
-    closeBtn.setText(cl.String.$new("\u2715  Zav\u0159\xEDt"));
+    closeBtn.setText(cl.String.$new("\u2715  Zavřít"));
     closeBtn.setTextColor(cl.Color.parseColor("#FFFFFF"));
     closeBtn.setBackground(makeRoundedDrawable(cl, "#635985", 14, activity));
     const that = this;
@@ -946,18 +956,10 @@ var Menu = class {
     this.#mainLayout.setOnTouchListener(DragListener.$new());
   }
   // ── Public API ───────────────────────────────────────────────────────────
-  /** Set the toggle-button colors (on / off state). */
   setColors(colorOn, colorOff) {
     this.#colorOn = colorOn;
     this.#colorOff = colorOff;
   }
-  /**
-   * Add a toggle button to the menu.
-   * @param {string} id         Unique class-name suffix (no spaces).
-   * @param {string} label      Button label.
-   * @param {{ on?: () => void, off?: () => void }} callbacks
-   * @param {boolean} defaultOn Whether the button starts in the ON state.
-   */
   addButton(id, label, callbacks, defaultOn = false) {
     const cl = this.#cl;
     const activity = this.#activity;
@@ -986,7 +988,6 @@ var Menu = class {
     btn.setOnClickListener(ClickListener.$new());
     this.#scrollLayout.addView(btn);
   }
-  /** Add the Log viewer button. */
   addLogButton() {
     const cl = this.#cl;
     const activity = this.#activity;
@@ -1011,7 +1012,6 @@ var Menu = class {
     btn.setOnClickListener(OpenLog.$new());
     this.#scrollLayout.addView(btn);
   }
-  /** Append a message to the log buffer and update the overlay if visible. */
   log(message) {
     logMessages.push(`[${(/* @__PURE__ */ new Date()).toLocaleTimeString()}] ${message}`);
     if (logMessages.length > LOG_MAX) logMessages.splice(0, logMessages.length - LOG_MAX);
@@ -1026,7 +1026,6 @@ var Menu = class {
       }
     });
   }
-  /** Attach the overlay to the activity window. Must be called once. */
   start() {
     this.#activity.addContentView(this.#contentView, this.#contentView.getLayoutParams());
     this.#contentView.addView(this.#mainLayout);
@@ -1034,11 +1033,10 @@ var Menu = class {
     this.#mainLayout.addView(this.#openBtn);
     this.#mainLayout.addView(this.#menuLayout);
   }
-  // ── Private ──────────────────────────────────────────────────────────────
   #refreshLogView() {
     if (!this.#logTextView) return;
     this.#logTextView.setText(
-      this.#cl.String.$new(logMessages.length ? logMessages.join("\n") : "(\u017E\xE1dn\xE9 logy)")
+      this.#cl.String.$new(logMessages.length ? logMessages.join("\n") : "(žádné logy)")
     );
     this.#logScrollView?.fullScroll(130);
   }

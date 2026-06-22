@@ -1154,6 +1154,7 @@ function buildMenu(cl, activity) {
       try {
         var bm = fns().BattleMode_getInstance();
         maybeRefreshWallCache(bm);
+        isTileInPoison(0, 0);
       } catch (e) {
         log("test error: " + e);
       }

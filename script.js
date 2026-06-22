@@ -184,6 +184,9 @@ function fns() {
 var TILE_SIZE = 300;
 var BIT_MOVE = 128;
 var BIT_PROJ = 64;
+var BIT_X = 32;
+var BIT_W = 16;
+var BIT_F = 8;
 var FAST_RESCAN_MS = 500;
 var FULL_REBUILD_MS = 15e3;
 var wallCache = {
@@ -196,13 +199,29 @@ var wallCache = {
   lastFullBuild: 0,
   lastFastScan: 0
 };
+function readBSString(strPtr) {
+  const length = strPtr.add(4).readS32();
+  if (length > 7) {
+    const charPtr = strPtr.add(8).readPointer();
+    return charPtr.readCString();
+  } else {
+    return strPtr.add(8).readCString();
+  }
+}
 function _readPacked(tilesArr, idx) {
   const tile = tilesArr.add(idx * Process.pointerSize).readPointer();
   if (tile.isNull()) return 0;
   const data = tile.readPointer();
   if (data.isNull()) return 0;
   const flags = data.add(OFFSETS.TileTypeData_BlocksMovement).readU16();
-  return (flags & 255 ? BIT_MOVE : 0) | (flags >> 8 & 255 ? BIT_PROJ : 0);
+  const csvRow = data.add(8).readPointer();
+  const valuePtr = fns().CSVRow__getValueAt(csvRow, OFFSETS.TileCodeDAT);
+  const tileCodeStr = readBSString(valuePtr);
+  let extra = 0;
+  if (tileCodeStr === "x") extra |= BIT_X;
+  if (tileCodeStr === "W") extra |= BIT_W;
+  if (tileCodeStr === "F") extra |= BIT_F;
+  return (flags & 255 ? BIT_MOVE : 0) | (flags >> 8 & 255 ? BIT_PROJ : 0) | extra;
 }
 function _fullRebuild(tm) {
   if (!tm || tm.isNull()) return false;

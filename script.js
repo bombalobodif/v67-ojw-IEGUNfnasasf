@@ -174,7 +174,7 @@ function fns() {
     homePage_startGame: new NativeFunction(base.add(OFFSETS.homePage_startGame), "void", ["pointer", "pointer", "pointer", "int", "pointer", "pointer", "uint8", "pointer", "uint8"]),
     guiCloseAllPopups: new NativeFunction(base.add(OFFSETS.GUI__showPopup), "void", ["pointer"]),
     mapEditorScreen_sendGoHomeMessage: new NativeFunction(base.add(OFFSETS.mapEditorScreen_sendGoHomeMessage), "void", ["pointer"]),
-    LogicGameModeUtil__isTileOnPoisonArea: new NativeFunction(base.add(OFFSETS.LogicGameModeUtil__isTileOnPoisonArea), "uint32", ["pointer", "int", "int", "uint8", "int", "int"]),
+    LogicGameModeUtil__isTileOnPoisonArea: new NativeFunction(base.add(OFFSETS.LogicGameModeUtil__isTileOnPoisonArea), "uint32", ["pointer", "int", "uint8", "int", "int"]),
     CSVRow__getValueAt: new NativeFunction(base.add(OFFSETS.CSVRow__getValueAt), "pointer", ["pointer", "int"]),
     LogicBattleModeClient_getPredictedTick: new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getPredictedTick), "int32", ["pointer"])
   };

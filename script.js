@@ -215,7 +215,8 @@ function _readPacked(tilesArr, idx) {
   if (data.isNull()) return 0;
   const flags = data.add(OFFSETS.TileTypeData_BlocksMovement).readU16();
   const csvRow = data.add(8).readPointer();
-  const valuePtr = fns().CSVRow__getValueAt(csvRow, OFFSETS.TileCodeDAT);
+  const tileCodeDatColumn = base.add(OFFSETS.TileCodeDAT).readS32();
+  const valuePtr = fns().CSVRow__getValueAt(csvRow, tileCodeDatColumn);
   const tileCodeStr = readBSString(valuePtr);
   let extra = 0;
   if (tileCodeStr === "x") extra |= BIT_X;
@@ -235,6 +236,9 @@ function _fullRebuild(tm) {
   const wall = new Uint8Array(total);
   const dest = [];
   for (let i = 0; i < total; i++) {
+    const packed = _readPacked(tilesArr, i);
+    wall[i] = packed;
+    if (packed) dest.push(i);
   }
   const now = Date.now();
   Object.assign(wallCache, {

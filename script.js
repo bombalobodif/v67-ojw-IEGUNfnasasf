@@ -388,7 +388,7 @@ function isTileInPoison(tx, ty) {
   const battleMode = fns().BattleMode_getInstance();
   const state1 = battleMode.add(40).readPointer();
   const state2 = state1.add(296).readPointer();
-  const tick = fns().LogicBattleModeClient_getPredictedTick(state1).readS32();
+  const tick = fns().LogicBattleModeClient_getPredictedTick(state1);
   return isTileOnPoisonArea(tx, ty, state2, tick, w, h);
 }
 function isPosInPoison(wx, wy) {

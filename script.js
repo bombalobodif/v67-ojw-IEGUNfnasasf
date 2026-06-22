@@ -235,9 +235,6 @@ function _fullRebuild(tm) {
   const wall = new Uint8Array(total);
   const dest = [];
   for (let i = 0; i < total; i++) {
-    const packed = _readPacked(tilesArr, i);
-    wall[i] = packed;
-    if (packed) dest.push(i);
   }
   const now = Date.now();
   Object.assign(wallCache, {

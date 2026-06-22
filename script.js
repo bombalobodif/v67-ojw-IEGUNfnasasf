@@ -363,9 +363,11 @@ function handleObjects(objects, count, ownTeamId) {
     }
     const x = fns().LogicGameObjectClient_getX(objPtr);
     const y = fns().LogicGameObjectClient_getY(objPtr);
+    const data = fns().LogicGameObjectClient_getData(objPtr);
     if (objType === OBJ_TYPE_CHARACTER) {
       const teamId = objPtr.add(OFFSETS.GameObj_team).readS32();
-      if (teamId !== ownTeamId) newEnemies.push({ x, y, teamId });
+      const id = data.add(24).readU8() | 0;
+      if (teamId !== ownTeamId) newEnemies.push({ x, y, teamId, id });
     } else if (objType === OBJ_TYPE_PROJECTILE) {
       newProjectiles.push({ x, y });
     }
@@ -449,15 +451,113 @@ function sendMove(logic, battle, wx, wy) {
 // agent/ai/pathfinder.js
 var ENEMY_AVOID_RADIUS = TILE_SIZE * 4;
 var BULLET_AVOID_RADIUS = TILE_SIZE * 3;
+var BRAWLER_RANGE = {
+  0: 2800,
+  1: 3300,
+  2: 2e3,
+  3: 3300,
+  4: 3500,
+  5: 2800,
+  6: 2700,
+  7: 3300,
+  8: 2200,
+  9: 2700,
+  10: 1100,
+  11: 1e3,
+  12: 3200,
+  13: 2600,
+  14: 3200,
+  15: 3700,
+  16: 3300,
+  17: 2900,
+  18: 2200,
+  19: 3200,
+  20: 2200,
+  21: 2100,
+  22: 3200,
+  23: 3500,
+  24: 1300,
+  25: 3100,
+  26: 1300,
+  27: 3700,
+  28: 2200,
+  29: 3700,
+  30: 2400,
+  31: 2600,
+  32: 3100,
+  34: 1200,
+  35: 3100,
+  36: 3200,
+  37: 1800,
+  38: 2400,
+  39: 3200,
+  40: 3100,
+  41: 3400,
+  42: 3700,
+  43: 700,
+  44: 3300,
+  45: 2800,
+  46: 3700,
+  47: 2800,
+  48: 2800,
+  49: 1e3,
+  50: 3100,
+  51: 1700,
+  52: 3300,
+  53: 3300,
+  54: 1e3,
+  56: 3400,
+  57: 1500,
+  58: 3300,
+  59: 3300,
+  60: 1100,
+  61: 3400,
+  62: 2e3,
+  63: 3100,
+  64: 3300,
+  65: 3300,
+  67: 2700,
+  68: 3200,
+  69: 1200,
+  70: 2e3,
+  71: 1200,
+  72: 3300,
+  73: 2400,
+  74: 3300,
+  75: 1500,
+  76: 1300,
+  77: 2700,
+  78: 2900,
+  79: 3700,
+  80: 1500,
+  81: 700,
+  82: 2300,
+  83: 2800,
+  84: 1800,
+  85: 1e3,
+  86: 1300,
+  87: 2300,
+  88: 2800,
+  89: 2300,
+  90: 2900,
+  91: 3100,
+  92: 3100,
+  93: 1e3,
+  94: 200,
+  95: 1200,
+  98: 3700,
+  99: 1200
+};
 function tileDangerCost(tx, ty) {
   let cost = 0;
   if (isTileInPoison(tx, ty)) cost += 1e4;
   const wx = tx * TILE_SIZE + TILE_SIZE / 2;
   const wy = ty * TILE_SIZE + TILE_SIZE / 2;
   for (const e of worldState.enemies) {
+    const range = BRAWLER_RANGE[e.id];
     const dx = wx - e.x, dy = wy - e.y;
     const d2 = dx * dx + dy * dy;
-    const r2 = ENEMY_AVOID_RADIUS * ENEMY_AVOID_RADIUS;
+    const r2 = range * range;
     if (d2 < r2) cost += Math.round(500 * (1 - d2 / r2));
   }
   for (const p of worldState.projectiles) {

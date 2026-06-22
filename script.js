@@ -556,6 +556,7 @@ function startWalk(goalWX, goalWY, onDone = null) {
     }
     const wp = walker.path[walker.stepIdx];
     sendMove(c.logic, c.battle, wp.x, wp.y);
+    _log?.(`walk step ${walker.stepIdx}/${walker.path.length} → (${wp.x|0}, ${wp.y|0}) pos=(${p?.x|0}, ${p?.y|0})`);
     const p = getMyPosition(c.logic);
     if (!p) return;
     const dx = p.x - wp.x, dy = p.y - wp.y;

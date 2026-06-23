@@ -1305,6 +1305,15 @@ function buildMenu(cl, activity) {
       aiStop(log);
     }
   });
+  menu.addButton("attack", "attack test", {
+    on: () => {
+      try {
+        attack(0, 0);
+      } catch (e) {
+        log("test error: " + e);
+      }
+    }
+  });
   menu.addLogButton();
   menu.start();
 }

@@ -395,8 +395,8 @@ function isTileInPoison(tx, ty) {
   const tick = fns().LogicBattleModeClient_getPredictedTick(state1);
   return isTileOnPoisonArea(tx, ty, state2, tick, w, h);
 }
-function isPosInPoison(wx2, wy2) {
-  return isTileInPoison(wx2 / TILE_SIZE | 0, wy2 / TILE_SIZE | 0);
+function isPosInPoison(wx, wy) {
+  return isTileInPoison(wx / TILE_SIZE | 0, wy / TILE_SIZE | 0);
 }
 function getSafeCenter() {
   const { w, h } = wallCache;
@@ -432,19 +432,19 @@ function getMyPosition(logic) {
     return null;
   }
 }
-function sendMove(logic, battle, wx2, wy2) {
-  wx2 = wx2 | 0;
-  wy2 = wy2 | 0;
-  if (!isFinite(wx2) || !isFinite(wy2) || Math.abs(wx2) > 2e5 || Math.abs(wy2) > 2e5) return;
+function sendMove(logic, battle, wx, wy) {
+  wx = wx | 0;
+  wy = wy | 0;
+  if (!isFinite(wx) || !isFinite(wy) || Math.abs(wx) > 2e5 || Math.abs(wy) > 2e5) return;
   try {
-    fns().LogicBattleModeClient_setClientPredictionMoveTo(logic, wx2, wy2, 1);
+    fns().LogicBattleModeClient_setClientPredictionMoveTo(logic, wx, wy, 1);
     if (!battle || battle.isNull()) return;
     const manager = battle.add(OFFSETS.BattleMode_clientInputManager).readPointer();
     if (!manager || manager.isNull()) return;
     const ci = malloc(64);
     fns().ClientInput_ctor(ci, 2);
-    ci.add(OFFSETS.ClientInput_x).writeS32(wx2);
-    ci.add(OFFSETS.ClientInput_y).writeS32(wy2);
+    ci.add(OFFSETS.ClientInput_x).writeS32(wx);
+    ci.add(OFFSETS.ClientInput_y).writeS32(wy);
     fns().ClientInputManager_add(manager, ci);
   } catch (_) {
   }
@@ -553,17 +553,17 @@ var BRAWLER_RANGE = {
 function tileDangerCost(tx, ty) {
   let cost = 0;
   if (isTileInPoison(tx, ty)) cost += 1e4;
-  const wx2 = tx * TILE_SIZE + TILE_SIZE / 2;
-  const wy2 = ty * TILE_SIZE + TILE_SIZE / 2;
+  const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+  const wy = ty * TILE_SIZE + TILE_SIZE / 2;
   for (const e of worldState.enemies) {
     const range = BRAWLER_RANGE[e.id];
-    const dx = wx2 - e.x, dy = wy2 - e.y;
+    const dx = wx - e.x, dy = wy - e.y;
     const d2 = dx * dx + dy * dy;
     const r2 = range * range;
     if (d2 < r2) cost += Math.round(500 * (1 - d2 / r2));
   }
   for (const p of worldState.projectiles) {
-    const dx = wx2 - p.x, dy = wy2 - p.y;
+    const dx = wx - p.x, dy = wy - p.y;
     const d2 = dx * dx + dy * dy;
     const r2 = BULLET_AVOID_RADIUS * BULLET_AVOID_RADIUS;
     if (d2 < r2) cost += Math.round(800 * (1 - d2 / r2));
@@ -803,8 +803,8 @@ function attack(fireX, fireY) {
   if (!manager || manager.isNull()) return;
   const ci = malloc(64);
   fns().ClientInput_ctor(ci, 1);
-  ci.add(OFFSETS.ClientInput_x).writeS32(wx);
-  ci.add(OFFSETS.ClientInput_y).writeS32(wy);
+  ci.add(OFFSETS.ClientInput_x).writeS32(fireX);
+  ci.add(OFFSETS.ClientInput_y).writeS32(fireY);
   fns().ClientInputManager_add(manager, ci);
 }
 function _closestThreat(myX, myY, list, type) {
@@ -882,16 +882,16 @@ function _pickRoamPoint(myX, myY, forceDistant) {
     const ty = b + (Math.random() * (h - b * 2) | 0);
     if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
     if (wall[ty * w + tx] & BIT_MOVE) continue;
-    const wx2 = tx * TILE_SIZE + TILE_SIZE / 2;
-    const wy2 = ty * TILE_SIZE + TILE_SIZE / 2;
-    if (isPosInPoison(wx2, wy2)) continue;
-    const dx = wx2 - myX, dy = wy2 - myY;
+    const wx = tx * TILE_SIZE + TILE_SIZE / 2;
+    const wy = ty * TILE_SIZE + TILE_SIZE / 2;
+    if (isPosInPoison(wx, wy)) continue;
+    const dx = wx - myX, dy = wy - myY;
     const d2 = dx * dx + dy * dy;
     if (d2 < minD2) continue;
     const score = d2 / (TILE_SIZE * TILE_SIZE) - tileDangerCost(tx, ty) / 100;
     if (score > bestScore) {
       bestScore = score;
-      best = { x: wx2, y: wy2 };
+      best = { x: wx, y: wy };
     }
   }
   return best;

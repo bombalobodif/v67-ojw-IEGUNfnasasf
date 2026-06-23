@@ -786,6 +786,19 @@ function _aiTick() {
     }
     return;
   }
+  if (aiState.mode === "roam" || aiState.mode === "idle") {
+    const SOFT_RADIUS = TILE_SIZE * 3;
+    const SOFT_R2 = SOFT_RADIUS * SOFT_RADIUS;
+    const hasSoftThreat = worldState.enemies.some((e) => {
+      const dx = pos.x - e.x, dy = pos.y - e.y;
+      return dx * dx + dy * dy < SOFT_R2;
+    });
+    if (hasSoftThreat && aiState.mode === "roam") {
+      aiState.mode = "idle";
+      stopWalk();
+      return;
+    }
+  }
   if (!isWalking() || aiState.mode !== "roam") {
     aiState.mode = "roam";
     const pt = _pickRoamPoint(pos.x, pos.y, false);
@@ -876,7 +889,24 @@ function _pickRoamPoint(myX, myY, forceDistant) {
   const b = 0;
   const minDist = forceDistant ? TILE_SIZE * 8 : TILE_SIZE * 3;
   const minD2 = minDist * minDist;
-  let best = null, bestScore = -1;
+  let centX = -1, centY = -1, hasCentroid = false;
+  if (worldState.enemies.length > 0) {
+    let sx = 0, sy = 0;
+    for (const e of worldState.enemies) {
+      sx += e.x;
+      sy += e.y;
+    }
+    centX = sx / worldState.enemies.length;
+    centY = sy / worldState.enemies.length;
+    hasCentroid = true;
+  }
+  let maxRange = TILE_SIZE * 4;
+  for (const e of worldState.enemies) {
+    const r = BRAWLER_RANGE[e.id] ?? maxRange;
+    if (r > maxRange) maxRange = r;
+  }
+  const safeR2 = maxRange * maxRange;
+  let best = null, bestScore = -Infinity;
   for (let i = 0; i < ROAM_CANDIDATES; i++) {
     const tx = b + (Math.random() * (w - b * 2) | 0);
     const ty = b + (Math.random() * (h - b * 2) | 0);
@@ -888,6 +918,10 @@ function _pickRoamPoint(myX, myY, forceDistant) {
     const dx = wx - myX, dy = wy - myY;
     const d2 = dx * dx + dy * dy;
     if (d2 < minD2) continue;
+    if (hasCentroid) {
+      const cdx = wx - centX, cdy = wy - centY;
+      if (cdx * cdx + cdy * cdy < safeR2) continue;
+    }
     const score = d2 / (TILE_SIZE * TILE_SIZE) - tileDangerCost(tx, ty) / 100;
     if (score > bestScore) {
       bestScore = score;

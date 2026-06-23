@@ -139,7 +139,7 @@ var OFFSETS = Object.freeze({
 });
 
 // agent/core/natives.js
-var malloc2 = new NativeFunction(
+var malloc = new NativeFunction(
   Module.getExportByName("libc.so", "malloc"),
   "pointer",
   ["uint"]
@@ -441,7 +441,7 @@ function sendMove(logic, battle, wx2, wy2) {
     if (!battle || battle.isNull()) return;
     const manager = battle.add(OFFSETS.BattleMode_clientInputManager).readPointer();
     if (!manager || manager.isNull()) return;
-    const ci = malloc2(64);
+    const ci = malloc(64);
     fns().ClientInput_ctor(ci, 2);
     ci.add(OFFSETS.ClientInput_x).writeS32(wx2);
     ci.add(OFFSETS.ClientInput_y).writeS32(wy2);

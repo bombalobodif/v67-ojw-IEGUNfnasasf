@@ -176,7 +176,8 @@ function fns() {
     mapEditorScreen_sendGoHomeMessage: new NativeFunction(base.add(OFFSETS.mapEditorScreen_sendGoHomeMessage), "void", ["pointer"]),
     LogicGameModeUtil__isTileOnPoisonArea: new NativeFunction(base.add(OFFSETS.LogicGameModeUtil__isTileOnPoisonArea), "uint32", ["pointer", "int", "uint8", "int", "int"]),
     CSVRow__getValueAt: new NativeFunction(base.add(OFFSETS.CSVRow__getValueAt), "pointer", ["pointer", "int"]),
-    LogicBattleModeClient_getPredictedTick: new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getPredictedTick), "int32", ["pointer"])
+    LogicBattleModeClient_getPredictedTick: new NativeFunction(base.add(OFFSETS.LogicBattleModeClient_getPredictedTick), "int32", ["pointer"]),
+    BattleScreen_fireWrapperFn: new NativeFunction(base.add(OFFSETS.BattleScreen_fireWrapperFn), "int", ["pointer", "pointer"])
   };
   Object.freeze(_cache);
   return _cache;
@@ -369,7 +370,8 @@ function handleObjects(objects, count, ownTeamId) {
       const id = data.add(24).readU8() | 0;
       if (teamId !== ownTeamId) newEnemies.push({ x, y, teamId, id });
     } else if (objType === OBJ_TYPE_PROJECTILE) {
-      newProjectiles.push({ x, y });
+      const radius = fns().LogicProjectileData_getRadius(data);
+      newProjectiles.push({ x, y, radius });
     }
   }
   worldState.enemies = newEnemies;
@@ -754,7 +756,7 @@ function _aiTick() {
     }
     return;
   }
-  const closeBullet = _closestThreat(pos.x, pos.y, worldState.projectiles, BULLET_AVOID_RADIUS2);
+  const closeBullet = _closestThreat(pos.x, pos.y, worldState.projectiles, 2);
   if (closeBullet) {
     if (aiState.mode !== "dodge_bullet") {
       aiState.mode = "dodge_bullet";
@@ -767,7 +769,7 @@ function _aiTick() {
     }
     return;
   }
-  const closeEnemy = _closestThreat(pos.x, pos.y, worldState.enemies, ENEMY_AVOID_RADIUS2);
+  const closeEnemy = _closestThreat(pos.x, pos.y, worldState.enemies, 1);
   if (closeEnemy) {
     if (aiState.mode !== "avoid_enemy") {
       aiState.mode = "avoid_enemy";
@@ -791,14 +793,30 @@ function _aiTick() {
     }
   }
 }
-function _closestThreat(myX, myY, list, radius) {
-  let best = null, bestD2 = radius * radius;
+function _closestThreat(myX, myY, list, type) {
+  let best = null, bestD2 = 0;
   for (const t of list) {
-    const dx = myX - t.x, dy = myY - t.y;
-    const d2 = dx * dx + dy * dy;
-    if (d2 < bestD2) {
-      bestD2 = d2;
-      best = t;
+    if (type == 1) {
+      const range = BRAWLER_RANGE[t.id];
+      const dx = myX - t.x, dy = myY - t.y;
+      const d2 = dx * dx + dy * dy;
+      const divided = range * range / d2;
+      if (divided > bestD2) {
+        bestD2 = divided;
+        best = t;
+      }
+      continue;
+    }
+    if (type == 2) {
+      const range = t.range;
+      const dx = myX - t.x, dy = myY - t.y;
+      const d2 = dx * dx + dy * dy;
+      const divided = range * range / d2;
+      if (divided > bestD2) {
+        bestD2 = divided;
+        best = t;
+      }
+      continue;
     }
   }
   return best;

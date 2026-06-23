@@ -756,7 +756,7 @@ function _aiTick() {
     }
     return;
   }
-  const closeBullet = _closestThreat(pos.x, pos.y, worldState.projectiles, 2);
+  const closeBullet = _closestThreat(pos.x, pos.y, worldState.projectiles, 2).enemy;
   if (closeBullet) {
     if (aiState.mode !== "dodge_bullet") {
       aiState.mode = "dodge_bullet";
@@ -770,11 +770,15 @@ function _aiTick() {
     return;
   }
   const closeEnemy = _closestThreat(pos.x, pos.y, worldState.enemies, 1);
-  if (closeEnemy) {
+  const enemy = closeEnemy.enemy;
+  if (closeEnemy.attack) {
+    if (enemy) attack(enemy.x, enemy.y);
+  }
+  if (enemy) {
     if (aiState.mode !== "avoid_enemy") {
       aiState.mode = "avoid_enemy";
       stopWalk();
-      const flee = _fleePoint(pos.x, pos.y, closeEnemy.x, closeEnemy.y, TILE_SIZE * 6);
+      const flee = _fleePoint(pos.x, pos.y, enemy.x, enemy.y, TILE_SIZE * 6);
       if (flee) {
         _log?.("AI: avoid enemy");
         startWalk(flee.x, flee.y);
@@ -792,6 +796,17 @@ function _aiTick() {
       });
     }
   }
+}
+function attack(fireX, fireY) {
+  const battleMode = fns().BattleMode_getInstance();
+  const battleScreen = fns().BattleScreen_getInstance();
+  const own = fns().LogicBattleModeClient_getOwnCharacter(battleMode);
+  battleScreen.add(OFFSETS.BattleScreen_manualFireX).writeS32(fireX);
+  battleScreen.add(OFFSETS.BattleScreen_manualFireY).writeS32(fireY);
+  battleScreen.add(OFFSETS.BattleScreen_autoFireX).writeS32(fireX);
+  battleScreen.add(OFFSETS.BattleScreen_autoFireY).writeS32(fireY);
+  battleScreen.add(OFFSETS.BattleScreen_autoshootPredOff).writeS32(0);
+  fns().BattleScreen_fireWrapperFn(battleScreen, own);
 }
 function _closestThreat(myX, myY, list, type) {
   let best = null, bestD2 = 0;
@@ -819,7 +834,9 @@ function _closestThreat(myX, myY, list, type) {
       continue;
     }
   }
-  return best;
+  let shouldAttack = false;
+  if (bestD2 <= TILE_SIZE * TILE_SIZE) shouldAttack = true;
+  return { enemy: best, attack: shouldAttack };
 }
 function _fleePoint(myX, myY, threatX, threatY, dist) {
   const dx = myX - threatX, dy = myY - threatY;

@@ -802,7 +802,7 @@ function attack(fireX, fireY) {
   const manager = battleMode.add(OFFSETS.BattleMode_clientInputManager).readPointer();
   if (!manager || manager.isNull()) return;
   const ci = malloc(64);
-  fns().ClientInput_ctor(ci, 1);
+  fns().ClientInput_ctor(ci, 0);
   ci.add(OFFSETS.ClientInput_x).writeS32(fireX);
   ci.add(OFFSETS.ClientInput_y).writeS32(fireY);
   fns().ClientInputManager_add(manager, ci);

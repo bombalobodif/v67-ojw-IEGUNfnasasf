@@ -837,16 +837,19 @@ function isWalking() {
 }
 
 // agent/ai/autofarm.js
-var AI_TICK_MS = 600;
-var ENEMY_AVOID_RADIUS2 = TILE_SIZE * 4;
-var BULLET_AVOID_RADIUS2 = TILE_SIZE * 3;
+var AI_TICK_MS = 400;
+var ROAM_CANDIDATES = 30;
+var STUCK_TICKS = 3;
+var STUCK_DIST2 = 40 * 40;
 var aiState = {
   _iv: null,
   mode: "idle",
-  // "idle" | "escape_poison" | "dodge_bullet" | "avoid_enemy" | "roam"
   stuckCounter: 0,
   lastX: 0,
-  lastY: 0
+  lastY: 0,
+  lastFleeX: null,
+  // zapamatuje si poslední flee cíl
+  lastFleeY: null
 };
 var _log = null;
 function aiStart(log2) {
@@ -871,9 +874,11 @@ function _aiTick() {
   if (!ctx) return;
   const pos = getMyPosition(ctx.logic);
   if (!pos) return;
+  const own = getBrawlerById(worldState.myId);
+  if (!own) return;
   const ddx = pos.x - aiState.lastX, ddy = pos.y - aiState.lastY;
-  if (ddx * ddx + ddy * ddy < 50 * 50 && aiState.mode !== "idle") {
-    if (++aiState.stuckCounter >= 4) {
+  if (ddx * ddx + ddy * ddy < STUCK_DIST2 && aiState.mode !== "idle") {
+    if (++aiState.stuckCounter >= STUCK_TICKS) {
       aiState.stuckCounter = 0;
       stopWalk();
       const escape = _pickRoamPoint(pos.x, pos.y, true);
@@ -890,17 +895,18 @@ function _aiTick() {
       aiState.mode = "escape_poison";
       stopWalk();
       const safe = _pickSafePoint(pos.x, pos.y);
-      _log?.(`AI: poison! \u2192 (${safe.x | 0}, ${safe.y | 0})`);
+      _log?.(`AI: poison \u2192 (${safe.x | 0}, ${safe.y | 0})`);
       startWalk(safe.x, safe.y);
     }
     return;
   }
-  const closeBullet = _closestThreat(pos.x, pos.y, worldState.projectiles, 2).enemy;
-  if (closeBullet) {
+  if (aiState.mode === "escape_poison") aiState.mode = "idle";
+  const bulletThreat = _evalBulletThreat(pos.x, pos.y);
+  if (bulletThreat) {
     if (aiState.mode !== "dodge_bullet") {
       aiState.mode = "dodge_bullet";
       stopWalk();
-      const dodge = _fleePoint(pos.x, pos.y, closeBullet.x, closeBullet.y, TILE_SIZE * 5);
+      const dodge = _fleePoint(pos.x, pos.y, bulletThreat.x, bulletThreat.y, TILE_SIZE * 5);
       if (dodge) {
         _log?.("AI: dodge bullet");
         startWalk(dodge.x, dodge.y);
@@ -908,34 +914,24 @@ function _aiTick() {
     }
     return;
   }
-  const closeEnemy = _closestThreat(pos.x, pos.y, worldState.enemies, 1);
-  const enemy = closeEnemy.enemy;
-  const own = getBrawlerById(worldState.myId);
-  if (own === null) return;
-  if (closeEnemy.attack) {
-    if (own.thrower && enemy) {
-      attack(enemy.x, enemy.y);
-    } else {
-      if (losCheck(pos.x, pos.y, enemy.x, enemy.y, BIT_MOVE) && enemy) {
-        attack(enemy.x, enemy.y);
-      }
-    }
-  }
-  if (enemy) {
+  if (aiState.mode === "dodge_bullet") aiState.mode = "idle";
+  _tryAttack(pos, own);
+  const threat = _evalEnemyThreat(pos.x, pos.y);
+  if (threat.flee) {
     if (aiState.mode !== "avoid_enemy") {
       aiState.mode = "avoid_enemy";
       stopWalk();
-      const flee = _fleePoint(pos.x, pos.y, enemy.x, enemy.y, TILE_SIZE * 6);
+      const flee = _smartFlee(pos.x, pos.y, threat);
       if (flee) {
+        aiState.lastFleeX = flee.x;
+        aiState.lastFleeY = flee.y;
         _log?.("AI: avoid enemy");
         startWalk(flee.x, flee.y);
       }
     }
     return;
   }
-  if (aiState.mode === "avoid_enemy") {
-    aiState.mode = "idle";
-  }
+  if (aiState.mode === "avoid_enemy") aiState.mode = "idle";
   if (!isWalking() || aiState.mode !== "roam") {
     aiState.mode = "roam";
     const pt = _pickRoamPoint(pos.x, pos.y, false);
@@ -947,6 +943,24 @@ function _aiTick() {
     }
   }
 }
+function _tryAttack(pos, own) {
+  if (!worldState.enemies.length) return;
+  const myRange = BRAWLER_RANGE[worldState.myId] ?? 2e3;
+  let bestTarget = null;
+  let bestScore = -Infinity;
+  for (const e of worldState.enemies) {
+    const dx = pos.x - e.x, dy = pos.y - e.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > myRange * myRange) continue;
+    if (!own.thrower && !losCheck(pos.x, pos.y, e.x, e.y, BIT_MOVE)) continue;
+    const score = 1 - d2 / (myRange * myRange);
+    if (score > bestScore) {
+      bestScore = score;
+      bestTarget = e;
+    }
+  }
+  if (bestTarget) attack(bestTarget.x, bestTarget.y);
+}
 function attack(fireX, fireY) {
   const battleMode = fns().BattleMode_getInstance();
   const manager = battleMode.add(OFFSETS.BattleMode_clientInputManager).readPointer();
@@ -957,37 +971,72 @@ function attack(fireX, fireY) {
   ci.add(OFFSETS.ClientInput_y).writeS32(fireY);
   fns().ClientInputManager_add(manager, ci);
 }
-function _closestThreat(myX, myY, list, type) {
-  let best = null, bestD2 = 0, bestRealD2 = Infinity;
-  for (const t of list) {
-    if (type == 1) {
-      const range = BRAWLER_RANGE[t.id];
-      const dx = myX - t.x, dy = myY - t.y;
-      const d2 = dx * dx + dy * dy;
-      const divided = range * range / d2;
-      if (divided > bestD2) {
-        bestD2 = divided;
-        best = t;
-        bestRealD2 = d2;
-      }
-      continue;
+function _evalBulletThreat(myX, myY) {
+  let wx = 0, wy = 0, totalW = 0;
+  for (const p of worldState.projectiles) {
+    const r = p.radius ?? TILE_SIZE * 3;
+    const dx = myX - p.x, dy = myY - p.y;
+    const d2 = dx * dx + dy * dy;
+    const ratio = r * r / d2;
+    if (ratio < 1) continue;
+    wx += p.x * ratio;
+    wy += p.y * ratio;
+    totalW += ratio;
+  }
+  if (totalW === 0) return null;
+  return { x: wx / totalW, y: wy / totalW };
+}
+function _evalEnemyThreat(myX, myY) {
+  const myRange = BRAWLER_RANGE[worldState.myId] ?? 2e3;
+  let worstScore = 0;
+  let worstEnemy = null;
+  let fleeX = 0, fleeY = 0, fleeW = 0;
+  for (const e of worldState.enemies) {
+    const eRange = BRAWLER_RANGE[e.id] ?? 2e3;
+    const dx = myX - e.x, dy = myY - e.y;
+    const d2 = dx * dx + dy * dy;
+    const dist = Math.sqrt(d2);
+    if (dist > eRange * 1.1) continue;
+    const score = eRange * eRange / d2;
+    const shouldFlee = eRange > myRange * 0.85;
+    if (shouldFlee && score > worstScore) {
+      worstScore = score;
+      worstEnemy = e;
     }
-    if (type == 2) {
-      const range = t.range;
-      const dx = myX - t.x, dy = myY - t.y;
-      const d2 = dx * dx + dy * dy;
-      const divided = range * range / d2;
-      if (divided > bestD2) {
-        bestD2 = divided;
-        best = t;
-        bestRealD2 = d2;
-      }
-      continue;
+    if (dist < eRange) {
+      fleeX += e.x * score;
+      fleeY += e.y * score;
+      fleeW += score;
     }
   }
-  const myRange = BRAWLER_RANGE[worldState.myId];
-  const shouldAttack = best !== null && bestRealD2 <= myRange * myRange;
-  return { enemy: best, attack: shouldAttack };
+  return {
+    flee: worstEnemy !== null,
+    enemy: worstEnemy,
+    centerX: fleeW > 0 ? fleeX / fleeW : worstEnemy?.x ?? myX,
+    centerY: fleeW > 0 ? fleeY / fleeW : worstEnemy?.y ?? myY
+  };
+}
+function _smartFlee(myX, myY, threat) {
+  const dx = myX - threat.centerX, dy = myY - threat.centerY;
+  const baseAngle = Math.atan2(dy, dx);
+  const dist = TILE_SIZE * 7;
+  const angles = [0, 20, -20, 40, -40, 60, -60].map((deg) => baseAngle + deg * Math.PI / 180);
+  let best = null;
+  let bestCost = Infinity;
+  for (const angle of angles) {
+    const tx = myX + Math.cos(angle) * dist | 0;
+    const ty = myY + Math.sin(angle) * dist | 0;
+    if (isPosInPoison(tx, ty)) continue;
+    const tileX = tx / TILE_SIZE | 0, tileY = ty / TILE_SIZE | 0;
+    if (tileX < 0 || tileX >= wallCache.w || tileY < 0 || tileY >= wallCache.h) continue;
+    if (wallCache.wall?.[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
+    const cost = tileDangerCost(tileX, tileY);
+    if (cost < bestCost) {
+      bestCost = cost;
+      best = { x: tx, y: ty };
+    }
+  }
+  return best ?? _pickSafePoint(myX, myY);
 }
 function _fleePoint(myX, myY, threatX, threatY, dist) {
   const dx = myX - threatX, dy = myY - threatY;
@@ -999,7 +1048,7 @@ function _fleePoint(myX, myY, threatX, threatY, dist) {
     if (isPosInPoison(tx, ty)) continue;
     const tileX = tx / TILE_SIZE | 0, tileY = ty / TILE_SIZE | 0;
     if (tileX < 0 || tileX >= wallCache.w || tileY < 0 || tileY >= wallCache.h) continue;
-    if (wallCache.wall && wallCache.wall[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
+    if (wallCache.wall?.[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
     return { x: tx, y: ty };
   }
   return _pickSafePoint(myX, myY);
@@ -1007,17 +1056,14 @@ function _fleePoint(myX, myY, threatX, threatY, dist) {
 function _pickSafePoint(myX, myY) {
   const { w, h } = wallCache;
   if (w === 0 || h === 0) return getSafeCenter();
-  const b = 0;
-  const safeW = Math.max(1, w - b * 2);
-  const safeH = Math.max(1, h - b * 2);
   const cx = (w / 2 | 0) * TILE_SIZE + TILE_SIZE / 2;
   const cy = (h / 2 | 0) * TILE_SIZE + TILE_SIZE / 2;
   if (!isPosInPoison(cx, cy)) return { x: cx, y: cy };
-  for (let i = 0; i < 20; i++) {
-    const rx = (b + Math.random() * safeW | 0) * TILE_SIZE + TILE_SIZE / 2;
-    const ry = (b + Math.random() * safeH | 0) * TILE_SIZE + TILE_SIZE / 2;
+  for (let i = 0; i < 30; i++) {
+    const rx = (Math.random() * w | 0) * TILE_SIZE + TILE_SIZE / 2;
+    const ry = (Math.random() * h | 0) * TILE_SIZE + TILE_SIZE / 2;
     const tileX = rx / TILE_SIZE | 0, tileY = ry / TILE_SIZE | 0;
-    if (wallCache.wall && wallCache.wall[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
+    if (wallCache.wall?.[tileY * wallCache.w + tileX] & BIT_MOVE) continue;
     if (!isPosInPoison(rx, ry)) return { x: rx, y: ry };
   }
   return { x: cx, y: cy };
@@ -1029,23 +1075,21 @@ function _pickRoamPoint(myX, myY, forceDistant) {
   const minD2 = minDist * minDist;
   const maxD2 = TILE_SIZE * 20 * (TILE_SIZE * 20);
   let centX = 0, centY = 0, hasCentroid = false;
+  let maxRange = TILE_SIZE * 4;
+  for (const e of worldState.enemies) {
+    centX += e.x;
+    centY += e.y;
+    const r = BRAWLER_RANGE[e.id] ?? maxRange;
+    if (r > maxRange) maxRange = r;
+  }
   if (worldState.enemies.length > 0) {
-    for (const e of worldState.enemies) {
-      centX += e.x;
-      centY += e.y;
-    }
     centX /= worldState.enemies.length;
     centY /= worldState.enemies.length;
     hasCentroid = true;
   }
-  let maxRange = TILE_SIZE * 4;
-  for (const e of worldState.enemies) {
-    const r = BRAWLER_RANGE[e.id] ?? maxRange;
-    if (r > maxRange) maxRange = r;
-  }
   const safeR2 = (maxRange + TILE_SIZE * 2) * (maxRange + TILE_SIZE * 2);
   let best = null, bestScore = -Infinity;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < ROAM_CANDIDATES; i++) {
     const tx = Math.random() * w | 0;
     const ty = Math.random() * h | 0;
     if (wall[ty * w + tx] & BIT_MOVE) continue;
@@ -1059,26 +1103,25 @@ function _pickRoamPoint(myX, myY, forceDistant) {
       const cdx = wx - centX, cdy = wy - centY;
       if (cdx * cdx + cdy * cdy < safeR2) continue;
     }
-    let exposedToEnemy = false;
+    let exposed = false;
     for (const e of worldState.enemies) {
       const brawler = getBrawlerById(e.id);
       if (!brawler) continue;
       if (brawler.thrower) {
         const edx = wx - e.x, edy = wy - e.y;
-        const ed2 = edx * edx + edy * edy;
         const r = BRAWLER_RANGE[e.id] ?? 0;
-        if (ed2 < r * r) {
-          exposedToEnemy = true;
+        if (edx * edx + edy * edy < r * r) {
+          exposed = true;
           break;
         }
       } else {
         if (losCheck(wx, wy, e.x, e.y, BIT_MOVE)) {
-          exposedToEnemy = true;
+          exposed = true;
           break;
         }
       }
     }
-    if (exposedToEnemy) continue;
+    if (exposed) continue;
     const score = Math.sqrt(d2) / TILE_SIZE - tileDangerCost(tx, ty) / 80;
     if (score > bestScore) {
       bestScore = score;

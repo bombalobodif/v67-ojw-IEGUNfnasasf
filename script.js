@@ -1027,8 +1027,7 @@ function _pickRoamPoint(myX, myY, forceDistant) {
   if (!wall || w === 0 || h === 0) return null;
   const minDist = forceDistant ? TILE_SIZE * 8 : TILE_SIZE * 4;
   const minD2 = minDist * minDist;
-  const maxDist = TILE_SIZE * 20;
-  const maxD2 = maxDist * maxDist;
+  const maxD2 = TILE_SIZE * 20 * (TILE_SIZE * 20);
   let centX = 0, centY = 0, hasCentroid = false;
   if (worldState.enemies.length > 0) {
     for (const e of worldState.enemies) {
@@ -1045,9 +1044,8 @@ function _pickRoamPoint(myX, myY, forceDistant) {
     if (r > maxRange) maxRange = r;
   }
   const safeR2 = (maxRange + TILE_SIZE * 2) * (maxRange + TILE_SIZE * 2);
-  const CANDIDATES = 20;
   let best = null, bestScore = -Infinity;
-  for (let i = 0; i < CANDIDATES; i++) {
+  for (let i = 0; i < 20; i++) {
     const tx = Math.random() * w | 0;
     const ty = Math.random() * h | 0;
     if (wall[ty * w + tx] & BIT_MOVE) continue;
@@ -1056,14 +1054,32 @@ function _pickRoamPoint(myX, myY, forceDistant) {
     if (isPosInPoison(wx, wy)) continue;
     const dx = wx - myX, dy = wy - myY;
     const d2 = dx * dx + dy * dy;
-    if (d2 < minD2) continue;
-    if (d2 > maxD2) continue;
+    if (d2 < minD2 || d2 > maxD2) continue;
     if (hasCentroid) {
       const cdx = wx - centX, cdy = wy - centY;
       if (cdx * cdx + cdy * cdy < safeR2) continue;
     }
-    const dist = Math.sqrt(d2);
-    const score = dist / TILE_SIZE - tileDangerCost(tx, ty) / 80;
+    let exposedToEnemy = false;
+    for (const e of worldState.enemies) {
+      const brawler = getBrawlerById(e.id);
+      if (!brawler) continue;
+      if (brawler.thrower) {
+        const edx = wx - e.x, edy = wy - e.y;
+        const ed2 = edx * edx + edy * edy;
+        const r = BRAWLER_RANGE[e.id] ?? 0;
+        if (ed2 < r * r) {
+          exposedToEnemy = true;
+          break;
+        }
+      } else {
+        if (losCheck(wx, wy, e.x, e.y, BIT_MOVE)) {
+          exposedToEnemy = true;
+          break;
+        }
+      }
+    }
+    if (exposedToEnemy) continue;
+    const score = Math.sqrt(d2) / TILE_SIZE - tileDangerCost(tx, ty) / 80;
     if (score > bestScore) {
       bestScore = score;
       best = { x: wx, y: wy };

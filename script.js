@@ -214,10 +214,10 @@ function readBSString(strPtr) {
 function _readPacked(tilesArr, idx) {
   const tile = tilesArr.add(idx * Process.pointerSize).readPointer();
   if (tile.isNull()) return 0;
-  const data = tile.readPointer();
-  if (data.isNull()) return 0;
-  const flags = data.add(OFFSETS.TileTypeData_BlocksMovement).readU16();
-  const csvRow = data.add(8).readPointer();
+  const data2 = tile.readPointer();
+  if (data2.isNull()) return 0;
+  const flags = data2.add(OFFSETS.TileTypeData_BlocksMovement).readU16();
+  const csvRow = data2.add(8).readPointer();
   const tileCodeDatColumn = base.add(OFFSETS.TileCodeDAT).readS32();
   const valuePtr = fns().CSVRow__getValueAt(csvRow, tileCodeDatColumn);
   const tileCodeStr = readBSString(valuePtr);
@@ -295,6 +295,30 @@ function maybeRefreshWallCache(logic, now = Date.now()) {
   }
   if (now - wallCache.lastFastScan >= FAST_RESCAN_MS) _fastRescan();
 }
+function losCheck(wx0, wy0, wx1, wy1, checkBit) {
+  const { wall, w, h } = wallCache;
+  if (!wall) return true;
+  let cx = wx0 / TILE_SIZE | 0, cy = wy0 / TILE_SIZE | 0;
+  const tx = wx1 / TILE_SIZE | 0, ty = wy1 / TILE_SIZE | 0;
+  if (cx === tx && cy === ty) return true;
+  const dx = Math.abs(tx - cx), dy = -Math.abs(ty - cy);
+  const sx = cx < tx ? 1 : -1, sy = cy < ty ? 1 : -1;
+  let err = dx + dy;
+  for (let n = 0, max = dx - dy + 2; n < max; n++) {
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      cx += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      cy += sy;
+    }
+    if (cx === tx && cy === ty) return true;
+    if (cx >= 0 && cx < w && cy >= 0 && cy < h && wall[cy * w + cx] & checkBit) return false;
+  }
+  return true;
+}
 
 // agent/core/gameHelpers.js
 function getHomePage() {
@@ -345,13 +369,16 @@ var CharacterType = Object.freeze({
 var worldState = {
   enemies: [],
   projectiles: [],
+  carryable: [],
   myTeamId: -1,
   myX: 0,
-  myY: 0
+  myY: 0,
+  myId: -1
 };
 function handleObjects(objects, count, ownTeamId) {
   const newEnemies = [];
   const newProjectiles = [];
+  const newCarryables = [];
   for (let i = 0; i < count; i++) {
     const objPtr = objects.add(i * 8).readPointer();
     if (!objPtr || objPtr.isNull()) continue;
@@ -364,18 +391,25 @@ function handleObjects(objects, count, ownTeamId) {
     }
     const x = fns().LogicGameObjectClient_getX(objPtr);
     const y = fns().LogicGameObjectClient_getY(objPtr);
-    const data = fns().LogicGameObjectClient_getData(objPtr);
-    if (objType === OBJ_TYPE_CHARACTER) {
+    const data2 = fns().LogicGameObjectClient_getData(objPtr);
+    const characterTypeId = data2.add(572).readS32();
+    const typeName = CharacterType[characterTypeId] ?? "Unknown";
+    if (objType === OBJ_TYPE_CHARACTER || typeName === "Hero") {
       const teamId = objPtr.add(OFFSETS.GameObj_team).readS32();
-      const id = data.add(24).readU8() | 0;
+      const id = data2.add(24).readU8() | 0;
+      if (typeName === "Carryable") {
+        newCarryables.push({ x, y });
+        continue;
+      }
       if (teamId !== ownTeamId) newEnemies.push({ x, y, teamId, id });
     } else if (objType === OBJ_TYPE_PROJECTILE) {
-      const radius = fns().LogicProjectileData_getRadius(data);
+      const radius = fns().LogicProjectileData_getRadius(data2);
       newProjectiles.push({ x, y, radius });
     }
   }
   worldState.enemies = newEnemies;
   worldState.projectiles = newProjectiles;
+  worldState.carryable = newCarryables;
   worldState.myTeamId = ownTeamId;
 }
 
@@ -550,6 +584,112 @@ var BRAWLER_RANGE = {
   98: 3700,
   99: 1200
 };
+var brawlers = [
+  { id: 0, name: "ShotgunGirl", itemName: "shelly", thrower: false },
+  { id: 1, name: "Gunslinger", itemName: "colt", thrower: false },
+  { id: 2, name: "BullDude", itemName: "bull", thrower: false },
+  { id: 3, name: "RocketGirl", itemName: "brock", thrower: false },
+  { id: 4, name: "TrickshotDude", itemName: "ricochet", thrower: false },
+  { id: 5, name: "Cactus", itemName: "spike", thrower: false },
+  { id: 6, name: "Barkeep", itemName: "barley", thrower: true },
+  { id: 7, name: "Mechanic", itemName: "jessie", thrower: false },
+  { id: 8, name: "Shaman", itemName: "nita", thrower: false },
+  { id: 9, name: "TntDude", itemName: "dynamike", thrower: true },
+  { id: 10, name: "Luchador", itemName: "elprimo", thrower: false },
+  { id: 11, name: "Undertaker", itemName: "mortis", thrower: false },
+  { id: 12, name: "Crow", itemName: "crow", thrower: false },
+  { id: 13, name: "DeadMariachi", itemName: "poco", thrower: false },
+  { id: 14, name: "BowDude", itemName: "bo", thrower: false },
+  { id: 15, name: "Sniper", itemName: "piper", thrower: false },
+  { id: 16, name: "MinigunDude", itemName: "pam", thrower: false },
+  { id: 17, name: "BlackHole", itemName: "tara", thrower: false },
+  { id: 18, name: "BarrelBot", itemName: "darryl", thrower: false },
+  { id: 19, name: "ArtilleryDude", itemName: "penny", thrower: false },
+  { id: 20, name: "HammerDude", itemName: "frank", thrower: false },
+  { id: 21, name: "HookDude", itemName: "gene", thrower: false },
+  { id: 22, name: "ClusterBombDude", itemName: "tick", thrower: false },
+  { id: 23, name: "Ninja", itemName: "leon", thrower: false },
+  { id: 24, name: "Rosa", itemName: "rosa", thrower: false },
+  { id: 25, name: "Whirlwind", itemName: "carl", thrower: false },
+  { id: 26, name: "Baseball", itemName: "bibi", thrower: false },
+  { id: 27, name: "Arcade", itemName: "8bit", thrower: false },
+  { id: 28, name: "Sandstorm", itemName: "sandy", thrower: false },
+  { id: 29, name: "BeeSniper", itemName: "bea", thrower: false },
+  { id: 30, name: "Mummy", itemName: "emz", thrower: false },
+  { id: 31, name: "SpawnerDude", itemName: "mr.p", thrower: false },
+  { id: 32, name: "Speedy", itemName: "max", thrower: false },
+  { id: 33, name: "Driller", itemName: "jacky", thrower: false },
+  { id: 34, name: "Blower", itemName: "gale", thrower: false },
+  { id: 35, name: "Controller", itemName: "nani", thrower: false },
+  { id: 36, name: "Wally", itemName: "sprout", thrower: true },
+  { id: 37, name: "PowerLeveler", itemName: "surge", thrower: false },
+  { id: 38, name: "Percenter", itemName: "colette", thrower: false },
+  { id: 39, name: "FireDude", itemName: "amber", thrower: false },
+  { id: 40, name: "IceDude", itemName: "lou", thrower: false },
+  { id: 41, name: "SnakeOil", itemName: "byron", thrower: false },
+  { id: 42, name: "Enrager", itemName: "edgar", thrower: false },
+  { id: 43, name: "Ruffs", itemName: "ruffs", thrower: false },
+  { id: 44, name: "Roller", itemName: "stu", thrower: false },
+  { id: 45, name: "ElectroSniper", itemName: "belle", thrower: false },
+  { id: 46, name: "StickyBomb", itemName: "squeak", thrower: false },
+  { id: 47, name: "CrossBomber", itemName: "grom", thrower: true },
+  { id: 48, name: "RopeDude", itemName: "buzz", thrower: false },
+  { id: 49, name: "AssaultShotgun", itemName: "griff", thrower: false },
+  { id: 50, name: "Knight", itemName: "ash", thrower: false },
+  { id: 51, name: "MechaDude", itemName: "meg", thrower: false },
+  { id: 52, name: "Duplicator", itemName: "lolla", thrower: false },
+  { id: 53, name: "KickerDude", itemName: "fang", thrower: false },
+  { id: 54, name: "Flea", itemName: "eve", thrower: false },
+  { id: 55, name: "JetpackGirl", itemName: "janet", thrower: false },
+  { id: 56, name: "CannonGirl", itemName: "bonnie", thrower: false },
+  { id: 57, name: "Silencer", itemName: "otis", thrower: false },
+  { id: 58, name: "WeaponThrower", itemName: "sam", thrower: true },
+  { id: 59, name: "SoulCollector", itemName: "gus", thrower: false },
+  { id: 60, name: "ShieldTank", itemName: "buster", thrower: false },
+  { id: 61, name: "Jester", itemName: "chester", thrower: false },
+  { id: 62, name: "DoorMan", itemName: "gray", thrower: false },
+  { id: 63, name: "Beamer", itemName: "mandy", thrower: false },
+  { id: 64, name: "Splitter", itemName: "artie", thrower: false },
+  { id: 65, name: "Puppeteer", itemName: "willow", thrower: false },
+  { id: 66, name: "Maisie", itemName: "maisie", thrower: false },
+  { id: 67, name: "FishTank", itemName: "fishtank", thrower: false },
+  { id: 68, name: "Duelist", itemName: "cordelius", thrower: false },
+  { id: 69, name: "Reviver", itemName: "doug", thrower: false },
+  { id: 70, name: "Cooker", itemName: "pearl", thrower: false },
+  { id: 71, name: "Conductor", itemName: "chuck", thrower: false },
+  { id: 72, name: "Cocooner", itemName: "charlie", thrower: false },
+  { id: 73, name: "Leaper", itemName: "mico", thrower: false },
+  { id: 74, name: "Attacher", itemName: "kit", thrower: false },
+  { id: 75, name: "Twins", itemName: "twins", thrower: true },
+  { id: 76, name: "AxeJuggler", itemName: "melody", thrower: false },
+  { id: 77, name: "InsectMan", itemName: "angelo", thrower: false },
+  { id: 78, name: "DragonRider", itemName: "draco", thrower: false },
+  { id: 79, name: "Ambusher", itemName: "lily", thrower: false },
+  { id: 80, name: "Painter", itemName: "berry", thrower: false },
+  { id: 81, name: "Crab", itemName: "clancy", thrower: false },
+  { id: 82, name: "Digger", itemName: "digger", thrower: false },
+  { id: 83, name: "Samurai", itemName: "samurai", thrower: false },
+  { id: 84, name: "Ghost", itemName: "shade", thrower: false },
+  { id: 85, name: "Voodoo", itemName: "juju", thrower: false },
+  { id: 86, name: "Meeple", itemName: "meeple", thrower: false },
+  { id: 87, name: "Skater", itemName: "ollie", thrower: false },
+  { id: 88, name: "Morningstar", itemName: "lumi", thrower: false },
+  { id: 89, name: "Chronomancer", itemName: "finx", thrower: false },
+  { id: 90, name: "Alternator", itemName: "jae", thrower: false },
+  { id: 91, name: "Geisha", itemName: "kaze", thrower: false },
+  { id: 92, name: "Stalker", itemName: "alli", thrower: false },
+  { id: 93, name: "Domain", itemName: "trunk", thrower: false },
+  { id: 94, name: "Dancer", itemName: "dancer", thrower: false },
+  { id: 95, name: "Fury", itemName: "fury", thrower: false },
+  { id: 96, name: "Bulletstorm", itemName: "pierce", thrower: false },
+  { id: 97, name: "Daredevil", itemName: "gigi", thrower: false },
+  { id: 98, name: "Mender", itemName: "mender", thrower: false },
+  { id: 99, name: "Shadowdemon", itemName: "shadowdemon", thrower: false },
+  { id: 100, name: "Redirecter", itemName: "redirecter", thrower: false }
+];
+function getBrawlerById(id) {
+  return brawlers.find((b) => b.id === id) ?? null;
+}
 function tileDangerCost(tx, ty) {
   let cost = 0;
   if (isTileInPoison(tx, ty)) cost += 1e4;
@@ -771,8 +911,16 @@ function _aiTick() {
   }
   const closeEnemy = _closestThreat(pos.x, pos.y, worldState.enemies, 1);
   const enemy = closeEnemy.enemy;
+  const own = getBrawlerById(worldState.myId);
+  if (own === null) return;
   if (closeEnemy.attack) {
-    if (enemy) attack(enemy.x, enemy.y);
+    if (own.thrower && enemy) {
+      attack(enemy.x, enemy.y);
+    } else {
+      if (losCheck(pos.x, pos.y, enemy.x, enemy.y, BIT_MOVE) && enemy) {
+        attack(enemy.x, enemy.y);
+      }
+    }
   }
   if (enemy) {
     if (aiState.mode !== "avoid_enemy") {
@@ -847,7 +995,8 @@ function _closestThreat(myX, myY, list, type) {
     }
   }
   let shouldAttack = false;
-  if (bestD2 <= TILE_SIZE * TILE_SIZE) shouldAttack = true;
+  const myRange = BRAWLER_RANGE[worldState.myId];
+  if (bestD2 <= myRange * myRange) shouldAttack = true;
   return { enemy: best, attack: shouldAttack };
 }
 function _fleePoint(myX, myY, threatX, threatY, dist) {
@@ -1258,6 +1407,8 @@ function hookGameEvents() {
     onEnter(args) {
       const battleMode = args[0];
       const ownCharacter = fns().LogicBattleModeClient_getOwnCharacter(battleMode);
+      const id = data.add(24).readU8() | 0;
+      worldState.myId = id;
       if (!ownCharacter || ownCharacter.isNull()) return;
       const ownTeamId = fns().LogicBattleModeClient_getOwnPlayerTeam(battleMode);
       const objMgr = battleMode.add(40).readPointer();

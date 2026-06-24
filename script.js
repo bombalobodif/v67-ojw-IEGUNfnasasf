@@ -934,18 +934,8 @@ function _aiTick() {
     }
     return;
   }
-  if (aiState.mode === "roam" || aiState.mode === "idle") {
-    const SOFT_RADIUS = TILE_SIZE * 3;
-    const SOFT_R2 = SOFT_RADIUS * SOFT_RADIUS;
-    const hasSoftThreat = worldState.enemies.some((e) => {
-      const dx = pos.x - e.x, dy = pos.y - e.y;
-      return dx * dx + dy * dy < SOFT_R2;
-    });
-    if (hasSoftThreat && aiState.mode === "roam") {
-      aiState.mode = "idle";
-      stopWalk();
-      return;
-    }
+  if (aiState.mode === "avoid_enemy") {
+    aiState.mode = "idle";
   }
   if (!isWalking() || aiState.mode !== "roam") {
     aiState.mode = "roam";
@@ -969,7 +959,7 @@ function attack(fireX, fireY) {
   fns().ClientInputManager_add(manager, ci);
 }
 function _closestThreat(myX, myY, list, type) {
-  let best = null, bestD2 = 0;
+  let best = null, bestD2 = 0, bestRealD2 = Infinity;
   for (const t of list) {
     if (type == 1) {
       const range = BRAWLER_RANGE[t.id];
@@ -990,13 +980,13 @@ function _closestThreat(myX, myY, list, type) {
       if (divided > bestD2) {
         bestD2 = divided;
         best = t;
+        bestRealD2 = d2;
       }
       continue;
     }
   }
-  let shouldAttack = false;
   const myRange = BRAWLER_RANGE[worldState.myId];
-  if (bestD2 <= myRange * myRange) shouldAttack = true;
+  const shouldAttack = best !== null && bestRealD2 <= myRange * myRange;
   return { enemy: best, attack: shouldAttack };
 }
 function _fleePoint(myX, myY, threatX, threatY, dist) {

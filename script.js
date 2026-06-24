@@ -838,7 +838,6 @@ function isWalking() {
 
 // agent/ai/autofarm.js
 var AI_TICK_MS = 600;
-var ROAM_CANDIDATES = 12;
 var ENEMY_AVOID_RADIUS2 = TILE_SIZE * 4;
 var BULLET_AVOID_RADIUS2 = TILE_SIZE * 3;
 var aiState = {
@@ -969,6 +968,7 @@ function _closestThreat(myX, myY, list, type) {
       if (divided > bestD2) {
         bestD2 = divided;
         best = t;
+        bestRealD2 = d2;
       }
       continue;
     }
@@ -1025,18 +1025,18 @@ function _pickSafePoint(myX, myY) {
 function _pickRoamPoint(myX, myY, forceDistant) {
   const { wall, w, h } = wallCache;
   if (!wall || w === 0 || h === 0) return null;
-  const b = 0;
-  const minDist = forceDistant ? TILE_SIZE * 8 : TILE_SIZE * 3;
+  const minDist = forceDistant ? TILE_SIZE * 8 : TILE_SIZE * 4;
   const minD2 = minDist * minDist;
-  let centX = -1, centY = -1, hasCentroid = false;
+  const maxDist = TILE_SIZE * 20;
+  const maxD2 = maxDist * maxDist;
+  let centX = 0, centY = 0, hasCentroid = false;
   if (worldState.enemies.length > 0) {
-    let sx = 0, sy = 0;
     for (const e of worldState.enemies) {
-      sx += e.x;
-      sy += e.y;
+      centX += e.x;
+      centY += e.y;
     }
-    centX = sx / worldState.enemies.length;
-    centY = sy / worldState.enemies.length;
+    centX /= worldState.enemies.length;
+    centY /= worldState.enemies.length;
     hasCentroid = true;
   }
   let maxRange = TILE_SIZE * 4;
@@ -1044,12 +1044,12 @@ function _pickRoamPoint(myX, myY, forceDistant) {
     const r = BRAWLER_RANGE[e.id] ?? maxRange;
     if (r > maxRange) maxRange = r;
   }
-  const safeR2 = maxRange * maxRange;
+  const safeR2 = (maxRange + TILE_SIZE * 2) * (maxRange + TILE_SIZE * 2);
+  const CANDIDATES = 20;
   let best = null, bestScore = -Infinity;
-  for (let i = 0; i < ROAM_CANDIDATES; i++) {
-    const tx = b + (Math.random() * (w - b * 2) | 0);
-    const ty = b + (Math.random() * (h - b * 2) | 0);
-    if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
+  for (let i = 0; i < CANDIDATES; i++) {
+    const tx = Math.random() * w | 0;
+    const ty = Math.random() * h | 0;
     if (wall[ty * w + tx] & BIT_MOVE) continue;
     const wx = tx * TILE_SIZE + TILE_SIZE / 2;
     const wy = ty * TILE_SIZE + TILE_SIZE / 2;
@@ -1057,11 +1057,13 @@ function _pickRoamPoint(myX, myY, forceDistant) {
     const dx = wx - myX, dy = wy - myY;
     const d2 = dx * dx + dy * dy;
     if (d2 < minD2) continue;
+    if (d2 > maxD2) continue;
     if (hasCentroid) {
       const cdx = wx - centX, cdy = wy - centY;
       if (cdx * cdx + cdy * cdy < safeR2) continue;
     }
-    const score = d2 / (TILE_SIZE * TILE_SIZE) - tileDangerCost(tx, ty) / 100;
+    const dist = Math.sqrt(d2);
+    const score = dist / TILE_SIZE - tileDangerCost(tx, ty) / 80;
     if (score > bestScore) {
       bestScore = score;
       best = { x: wx, y: wy };

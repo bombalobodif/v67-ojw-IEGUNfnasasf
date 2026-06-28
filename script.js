@@ -1543,7 +1543,7 @@ function buildMenu(cl, activity) {
     on: () => {
       try {
         const homePage = getHomePage();
-        const itemName = homePage.add(1600);
+        const itemName = homePage.add(1600).readPointer();
         const string = readBSStrings(itemName);
         log(itemName);
       } catch (e) {

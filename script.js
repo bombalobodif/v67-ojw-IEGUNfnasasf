@@ -1472,6 +1472,16 @@ function hookGameEvents() {
       maybeRefreshWallCache(battleMode);
     }
   });
+  Interceptor.attach(base.add(10514172), {
+    onEnter(args) {
+      log("select character called");
+    }
+  });
+  Interceptor.attach(base.add(10517744), {
+    onEnter(args) {
+      log("select skin called");
+    }
+  });
 }
 function buildMenu(cl, activity) {
   menu = new Menu(cl, activity);

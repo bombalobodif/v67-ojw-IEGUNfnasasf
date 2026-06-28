@@ -1483,6 +1483,15 @@ function hookGameEvents() {
     }
   });
 }
+function readBSStrings(strPtr) {
+  const length = strPtr.add(4).readS32();
+  if (length > 7) {
+    const charPtr = strPtr.add(8).readPointer();
+    return charPtr.readCString();
+  } else {
+    return strPtr.add(8).readCString();
+  }
+}
 function buildMenu(cl, activity) {
   menu = new Menu(cl, activity);
   menu.setColors("#82da48", "#406e36");
@@ -1530,12 +1539,13 @@ function buildMenu(cl, activity) {
       }
     }
   });
-  menu.addButton("test", "Test join", {
+  menu.addButton("test", "Test", {
     on: () => {
       try {
-        var bm = fns().BattleMode_getInstance();
-        maybeRefreshWallCache(bm);
-        isTileInPoison(0, 0);
+        const homePage = getHomePage();
+        const itemName = homePage.add(1600);
+        const string = readBSStrings(itemName);
+        log(itemName);
       } catch (e) {
         log("test error: " + e);
       }
